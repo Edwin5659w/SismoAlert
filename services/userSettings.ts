@@ -28,8 +28,10 @@ export async function ensureUserProfile(user: User) {
 
   if (!snapshot.exists()) {
     await setDoc(ref, {
+      name: user.displayName ?? user.email?.split('@')[0] ?? 'Usuario',
       email: user.email,
       createdAt: serverTimestamp(),
+      role: 'user',
       ...defaultSettings,
     });
   }

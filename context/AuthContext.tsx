@@ -10,6 +10,7 @@ import {
 import { isFirebaseConfigured } from '../config/firebaseKeys';
 import { mapAuthError } from '../lib/authErrors';
 import { getFirebaseAuth } from '../lib/firebase';
+import { ensureUserProfile } from '../services/userSettings';
 
 type AuthContextValue = {
   user: User | null;
@@ -49,7 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configured,
       signIn: async (email, password) => {
         try {
-          await signInWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
+          const credential = await signInWithEmailAndPassword(
+            getFirebaseAuth(),
+            email.trim(),
+            password,
+          );
+          await ensureUserProfile(credential.user);
         } catch (error) {
           throw new Error(mapAuthError(error));
         }
@@ -62,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             password,
           );
           await updateProfile(credential.user, { displayName: displayName.trim() });
+          await ensureUserProfile(credential.user);
         } catch (error) {
           throw new Error(mapAuthError(error));
         }

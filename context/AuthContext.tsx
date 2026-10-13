@@ -13,6 +13,7 @@ import {
 import { isFirebaseConfigured } from '../config/firebaseKeys';
 import { mapAuthError } from '../lib/authErrors';
 import { getFirebaseAuth } from '../lib/firebase';
+import { notifySuccessfulSignIn } from '../lib/notifications';
 import { ensureUserProfile } from '../services/userSettings';
 
 type AuthContextValue = {
@@ -73,6 +74,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await ensureUserProfile(credentialUser);
         } catch (error) {
           console.warn('No se pudo verificar el perfil del usuario', error);
+        }
+
+        try {
+          const notificationScheduled = await notifySuccessfulSignIn();
+          if (!notificationScheduled) {
+            console.info('No se mostró la notificación de inicio de sesión: permiso no concedido.');
+          }
+        } catch (error) {
+          console.warn('No se pudo mostrar la notificación de inicio de sesión.', error);
         }
       },
       signUp: async (displayName, email, password) => {

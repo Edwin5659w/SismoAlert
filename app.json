@@ -7,6 +7,9 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "plugins": [
+      "expo-notifications"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sismoalert.app"

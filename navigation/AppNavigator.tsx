@@ -1,12 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import {
+  createNavigationContainerRef,
+  DefaultTheme,
+  NavigationContainer,
+} from '@react-navigation/native';
 import { HomeScreen } from '../screens/HomeScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { colors } from '../theme';
 import { RootTabParamList } from '../types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
+
+export const navigationRef = createNavigationContainerRef<RootTabParamList>();
 
 const navTheme = {
   ...DefaultTheme,
@@ -22,7 +28,7 @@ const navTheme = {
 
 export function AppNavigator() {
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Tab.Navigator
         initialRouteName="Inicio"
         screenOptions={{

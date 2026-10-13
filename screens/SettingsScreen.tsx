@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   logout: {
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.danger,

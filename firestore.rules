@@ -32,7 +32,7 @@ service cloud.firestore {
       return data.keys().hasOnly([
         'uid', 'name', 'email', 'createdAt', 'role', 'alertsEnabled',
         'importantAlerts', 'minMagnitude', 'gpsEnabled', 'alertRadius',
-        'updatedAt'
+        'expoPushToken', 'pushTokenUpdatedAt', 'updatedAt'
       ]);
     }
 
@@ -49,6 +49,13 @@ service cloud.firestore {
         data.minMagnitude in ['3.0+', '4.0+', '5.0+'] &&
         data.gpsEnabled is bool &&
         data.alertRadius in ['20 km', '100 km', '150 km', '300 km'] &&
+        (!('expoPushToken' in data) ||
+          (data.expoPushToken is string &&
+            data.expoPushToken.size() > 0 &&
+            data.expoPushToken.size() <= 256)) &&
+        (!('pushTokenUpdatedAt' in data) ||
+          (data.pushTokenUpdatedAt is timestamp &&
+            data.pushTokenUpdatedAt <= request.time)) &&
         (!('updatedAt' in data) ||
           (data.updatedAt is timestamp && data.updatedAt <= request.time));
     }
@@ -68,7 +75,7 @@ service cloud.firestore {
         request.resource.data.name == resource.data.name &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'alertsEnabled', 'importantAlerts', 'minMagnitude', 'gpsEnabled',
-          'alertRadius', 'updatedAt'
+          'alertRadius', 'expoPushToken', 'pushTokenUpdatedAt', 'updatedAt'
         ]);
     }
 

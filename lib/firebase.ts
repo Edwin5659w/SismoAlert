@@ -53,6 +53,8 @@ export function getFirebaseApp() {
 export function getFirebaseAuth() {
   if (!auth) {
     auth = createAuth(getFirebaseApp());
+    // Correos de verificación y recuperación en español.
+    auth.languageCode = 'es';
   }
   return auth;
 }

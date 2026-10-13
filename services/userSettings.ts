@@ -21,20 +21,31 @@ function mapSettings(data: Record<string, unknown> | undefined): UserSettings {
   };
 }
 
-export async function ensureUserProfile(user: User) {
+/**
+ * Crea el documento `users/{uid}` si aún no existe.
+ * Los campos coinciden con lo que permiten las reglas de `firestore.rules`.
+ */
+export async function ensureUserProfile(user: User, name?: string) {
   const db = getFirebaseDb();
   const ref = doc(db, 'users', user.uid);
   const snapshot = await getDoc(ref);
 
-  if (!snapshot.exists()) {
-    await setDoc(ref, {
-      name: user.displayName ?? user.email?.split('@')[0] ?? 'Usuario',
-      email: user.email,
-      createdAt: serverTimestamp(),
-      role: 'user',
-      ...defaultSettings,
-    });
+  if (snapshot.exists()) {
+    return;
   }
+
+  const profileName =
+    (name ?? user.displayName ?? user.email?.split('@')[0] ?? 'Usuario').trim().slice(0, 100) ||
+    'Usuario';
+
+  await setDoc(ref, {
+    uid: user.uid,
+    name: profileName,
+    email: user.email ?? '',
+    createdAt: serverTimestamp(),
+    role: 'user',
+    ...defaultSettings,
+  });
 }
 
 export function subscribeUserSettings(uid: string, onChange: (settings: UserSettings) => void) {

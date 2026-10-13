@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppNavigator } from './navigation/AppNavigator';
-import { LoginScreen } from './screens/LoginScreen';
+import { AuthFlow } from './screens/AuthFlow';
 import { colors } from './theme';
 
 function Root() {
@@ -18,7 +18,7 @@ function Root() {
   }
 
   if (!user) {
-    return <LoginScreen />;
+    return <AuthFlow />;
   }
 
   return <AppNavigator />;

@@ -26,6 +26,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4aaafc1e-8a39-4126-9951-1020b00eb984"
+      }
+    },
+    "owner": "sececo"
   }
 }

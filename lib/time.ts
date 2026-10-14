@@ -14,3 +14,19 @@ export function formatTimeAgo(occurredAt: number) {
   const days = Math.round(hours / 24);
   return `Hace ${days} d`;
 }
+
+
+export function formatLocalTime(occurredAt: number) {
+  return new Date(occurredAt).toLocaleString('es-CO', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+export function formatUtcTime(occurredAt: number) {
+  return `${new Date(occurredAt).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}

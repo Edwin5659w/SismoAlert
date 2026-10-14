@@ -1,5 +1,5 @@
 // Modelo: users/{uid} contiene name, email, createdAt, role y preferencias.
-// earthquakes/{id} contiene datos sísmicos no personales y solo se consulta.
+// earthquakes/{id} contiene datos sísmicos no personales; se leen y se sincronizan desde SGC/USGS.
 rules_version = '2';
 
 service cloud.firestore {
@@ -79,8 +79,37 @@ service cloud.firestore {
         ]);
     }
 
+    function isValidEarthquake(data, earthquakeId) {
+      return data.keys().hasAll([
+        'magnitude', 'location', 'depthKm', 'occurredAt', 'severity',
+        'latitude', 'longitude', 'source'
+      ]) &&
+        data.keys().hasOnly([
+          'magnitude', 'location', 'depthKm', 'occurredAt', 'severity',
+          'latitude', 'longitude', 'source', 'url'
+        ]) &&
+        earthquakeId.matches('^(sgc|usgs)-[A-Za-z0-9_-]{1,90}$') &&
+        data.source in ['SGC', 'USGS'] &&
+        earthquakeId.matches('^' + data.source.lower() + '-.*') &&
+        (data.magnitude is int || data.magnitude is float) &&
+        data.magnitude >= -2 && data.magnitude <= 10 &&
+        data.location is string && data.location.size() > 0 && data.location.size() <= 200 &&
+        (data.depthKm is int || data.depthKm is float) &&
+        data.depthKm >= 0 && data.depthKm <= 800 &&
+        data.occurredAt is timestamp && data.occurredAt <= request.time &&
+        data.severity in ['Leve', 'Moderado', 'Fuerte', 'Muy fuerte'] &&
+        (data.latitude is int || data.latitude is float) &&
+        data.latitude >= -90 && data.latitude <= 90 &&
+        (data.longitude is int || data.longitude is float) &&
+        data.longitude >= -180 && data.longitude <= 180 &&
+        (!('url' in data) ||
+          (data.url is string && data.url.size() <= 500 && data.url.matches('^https://.*')));
+    }
+
     match /earthquakes/{earthquakeId} {
       allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() &&
+        isValidEarthquake(request.resource.data, earthquakeId);
     }
 
     match /{document=**} {

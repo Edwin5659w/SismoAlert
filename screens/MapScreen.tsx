@@ -7,6 +7,7 @@ import { Header } from '../components/Header';
 import { OptionPills } from '../components/OptionPills';
 import { QuakeMap } from '../components/QuakeMap';
 import { SectionTitle } from '../components/SectionTitle';
+import { useAds } from '../context/AdsContext';
 import { useSafety } from '../context/SafetyContext';
 import { parseRadiusKm } from '../lib/geo';
 import { parseMagnitude } from '../lib/magnitude';
@@ -19,6 +20,7 @@ export function MapScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { earthquakes, earthquakesLoading: loading, earthquakesError: error, location, settings } = useSafety();
   const [filter, setFilter] = useState('Todos');
+  const { registerInterstitialOpportunity } = useAds();
 
   const mapped = useMemo(
     () =>
@@ -50,7 +52,10 @@ export function MapScreen() {
                 }
               : undefined
           }
-          onSelect={(id) => navigation.navigate('Detalle', { id })}
+          onSelect={(id) => {
+            registerInterstitialOpportunity();
+            navigation.navigate('Detalle', { id });
+          }}
         />
       </View>
     </SafeAreaView>

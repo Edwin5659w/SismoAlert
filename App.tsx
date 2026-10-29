@@ -3,7 +3,9 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SafetyOverlay } from './components/safety/SafetyOverlay';
+import { AdsProvider } from './context/AdsContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { EntitlementProvider } from './context/EntitlementContext';
 import { SafetyProvider } from './context/SafetyContext';
 import { getFirebaseAuth } from './lib/firebase';
 import { registerForPushNotificationsAsync, saveExpoPushToken, setupNotificationListeners } from './lib/notifications';
@@ -83,11 +85,15 @@ function Root() {
   }
 
   return (
-    <SafetyProvider>
-      <NotificationBridge userId={user.uid} />
-      <AppNavigator />
-      <SafetyOverlay />
-    </SafetyProvider>
+    <EntitlementProvider>
+      <SafetyProvider>
+        <AdsProvider>
+          <NotificationBridge userId={user.uid} />
+          <AppNavigator />
+          <SafetyOverlay />
+        </AdsProvider>
+      </SafetyProvider>
+    </EntitlementProvider>
   );
 }
 

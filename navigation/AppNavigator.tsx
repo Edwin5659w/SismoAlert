@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreen } from '../screens/HomeScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { MedicalScreen } from '../screens/MedicalScreen';
+import { PaywallScreen } from '../screens/PaywallScreen';
 import { PreparednessScreen } from '../screens/PreparednessScreen';
 import { RecentScreen } from '../screens/RecentScreen';
 import { SafetyScreen } from '../screens/SafetyScreen';
@@ -126,6 +127,7 @@ export function AppNavigator() {
         <Tab.Screen name="ContactosConfianza" component={TrustedContactsScreen} options={hidden} />
         <Tab.Screen name="FichaMedica" component={MedicalScreen} options={hidden} />
         <Tab.Screen name="Preparacion" component={PreparednessScreen} options={hidden} />
+        <Tab.Screen name="Premium" component={PaywallScreen} options={hidden} />
       </Tab.Navigator>
     </NavigationContainer>
   );

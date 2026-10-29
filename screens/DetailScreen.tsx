@@ -3,6 +3,7 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BannerSlot } from '../components/ads/BannerSlot';
 import { DetailRow } from '../components/DetailRow';
 import { Header } from '../components/Header';
 import { SectionTitle } from '../components/SectionTitle';
@@ -106,6 +107,7 @@ export function DetailScreen({ navigation, route }: DetailScreenProps) {
                 <Text style={styles.linkText}>Ver reporte original</Text>
               </Pressable>
             ) : null}
+            <BannerSlot />
           </>
         ) : null}
       </ScrollView>

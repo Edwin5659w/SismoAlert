@@ -3,11 +3,13 @@ import { useNavigation } from '@react-navigation/native';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BannerSlot } from '../components/ads/BannerSlot';
 import { Header } from '../components/Header';
 import { OptionPills } from '../components/OptionPills';
 import { QuakeListItem } from '../components/QuakeListItem';
 import { SectionTitle } from '../components/SectionTitle';
 import { runEarthquakeSync, useEarthquakeSyncStatus } from '../hooks/useEarthquakeSync';
+import { useAds } from '../context/AdsContext';
 import { useSafety } from '../context/SafetyContext';
 import { quakeDistanceKm } from '../lib/geo';
 import { parseMagnitude } from '../lib/magnitude';
@@ -20,6 +22,7 @@ export function RecentScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { earthquakes, earthquakesLoading: loading, earthquakesError: error, location } = useSafety();
   const syncStatus = useEarthquakeSyncStatus();
+  const { registerInterstitialOpportunity } = useAds();
   const [filter, setFilter] = useState('Todos');
 
   const visibleEarthquakes = useMemo(
@@ -55,6 +58,7 @@ export function RecentScreen() {
             <SectionTitle title={`${visibleEarthquakes.length} sismos`} />
           </View>
         }
+        ListFooterComponent={<BannerSlot />}
         ListEmptyComponent={
           !loading ? <Text style={styles.empty}>No hay sismos para el filtro seleccionado.</Text> : null
         }
@@ -62,7 +66,10 @@ export function RecentScreen() {
           <QuakeListItem
             earthquake={item}
             distanceKm={quakeDistanceKm(item, location.location)}
-            onPress={(earthquake) => navigation.navigate('Detalle', { id: earthquake.id })}
+            onPress={(earthquake) => {
+              registerInterstitialOpportunity();
+              navigation.navigate('Detalle', { id: earthquake.id });
+            }}
           />
         )}
       />

@@ -7,8 +7,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Header } from '../components/Header';
 import { NavRow } from '../components/NavRow';
 import { OptionPills } from '../components/OptionPills';
+import { PremiumGate } from '../components/premium/PremiumGate';
 import { SettingItem } from '../components/SettingItem';
+import { useAds } from '../context/AdsContext';
 import { useAuth } from '../context/AuthContext';
+import { useEntitlement } from '../context/EntitlementContext';
 import { useSafety } from '../context/SafetyContext';
 import { refreshLocation } from '../hooks/useUserLocation';
 import { saveSafetySettings } from '../services/safety';
@@ -22,7 +25,9 @@ const CHECKIN_MINUTES = ['1 min', '3 min', '5 min', '10 min'];
 export function SettingsScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { user, logout } = useAuth();
-  const { settings, safetySettings, location, userName } = useSafety();
+  const { settings, safetySettings, location, userName, presence, setAutoEscalation, contacts } = useSafety();
+  const { tier, isPremium, activating } = useEntitlement();
+  const { privacyOptionsRequired, openPrivacyOptions } = useAds();
   const [saving, setSaving] = useState(false);
 
   const run = async (task: Promise<unknown>) => {
@@ -74,6 +79,21 @@ export function SettingsScreen() {
           ) : null}
         </View>
 
+        <View style={{ height: spacing.md }} />
+        <NavRow
+          icon="sparkles"
+          title={isPremium ? 'SismoAlert Premium' : 'Hazte Premium'}
+          caption={
+            isPremium
+              ? 'Sin anuncios y llamada automática a tus contactos'
+              : 'Quita los anuncios y activa la llamada automática'
+          }
+          status={tier === 'loading' ? '…' : isPremium ? 'Activo' : activating ? 'Activando' : 'Ver planes'}
+          statusColor={isPremium ? colors.success : colors.warning}
+          tint={colors.warning}
+          onPress={() => navigation.navigate('Premium')}
+        />
+
         <Text style={styles.section}>Alertas</Text>
         <NavRow
           icon="notifications"
@@ -119,9 +139,37 @@ export function SettingsScreen() {
           onValueChange={(notifyLinkedContacts) => updateSafety({ notifyLinkedContacts })}
         />
 
+        <PremiumGate
+          feature="Llamada automática a tus contactos"
+          description="Si no respondes, nuestro servidor llama y envía SMS a tus contactos aunque la app esté cerrada."
+        >
+          <SettingItem
+            title="Escalada automática por llamada y SMS"
+            description={
+              presence.autoEscalation
+                ? `Activa · ${contacts.length} contacto${contacts.length === 1 ? '' : 's'}. Compartimos tu ubicación aproximada (≈1 km) solo con el servidor de SismoAlert.`
+                : 'Al activarla aceptas compartir tu ubicación aproximada (≈1 km) para saber si un sismo te afecta.'
+            }
+            value={presence.autoEscalation}
+            onValueChange={(enabled) => {
+              if (enabled && !settings.gpsEnabled) toggleGps(true);
+              run(setAutoEscalation(enabled));
+            }}
+          />
+        </PremiumGate>
+
         <Text style={styles.section}>Seguridad</Text>
         <NavRow icon="people" title="Contactos de confianza" onPress={() => navigation.navigate('ContactosConfianza')} />
         <NavRow icon="medical" title="Ficha de emergencia" tint={colors.danger} onPress={() => navigation.navigate('FichaMedica')} />
+
+        {privacyOptionsRequired ? (
+          <NavRow
+            icon="shield-half"
+            title="Privacidad de anuncios"
+            caption="Cambia tu consentimiento de publicidad"
+            onPress={openPrivacyOptions}
+          />
+        ) : null}
 
         <Pressable style={styles.logout} onPress={logout}>
           <Ionicons name="log-out-outline" size={18} color={colors.danger} />

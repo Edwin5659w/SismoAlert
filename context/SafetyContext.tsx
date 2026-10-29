@@ -17,9 +17,21 @@ import {
   buildEmergencyMessage,
   notifyLinkedContacts,
 } from '../lib/emergency';
-import { parseRadiusKm, quakeDistanceKm } from '../lib/geo';
+import { distanceKm, parseRadiusKm, quakeDistanceKm } from '../lib/geo';
 import { parseMagnitude } from '../lib/magnitude';
-import { cancelSafetyNotification, scheduleSafetyNotification } from '../lib/notifications';
+import {
+  cancelSafetyNotification,
+  onSafetyNotificationAction,
+  registerSafetyNotificationActions,
+  scheduleSafetyNotification,
+} from '../lib/notifications';
+import {
+  Presence,
+  answerServerCheckin,
+  savePresence,
+  subscribePendingServerCheckins,
+  subscribePresence,
+} from '../services/premiumSafety';
 import {
   defaultSafetySettings,
   emptyPreparedness,
@@ -51,6 +63,9 @@ const NO_LOCATION_MAGNITUDE = 6;
 const DRILL_SECONDS = 30;
 const SYNC_EVERY_MS = 60 * 1000;
 const ALARM_PATTERN = [0, 700, 500, 700, 500];
+/** Se reenvía la ubicación aproximada si te moviste más de esto o pasó este tiempo. */
+const PRESENCE_MIN_MOVE_KM = 1;
+const PRESENCE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
 export type CheckInPhase = 'idle' | 'asking' | 'escalated' | 'safe' | 'sos';
 
@@ -79,6 +94,8 @@ type SafetyContextValue = {
   respond: (status: 'safe' | 'help') => void;
   dismiss: () => void;
   helpMessage: (kind: 'help' | 'safe' | 'no-response') => string;
+  presence: Presence;
+  setAutoEscalation: (enabled: boolean) => Promise<void>;
 };
 
 const SafetyContext = createContext<SafetyContextValue | undefined>(undefined);
@@ -96,6 +113,7 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
   const [medical, setMedical] = useState<MedicalInfo | null>(null);
   const [preparedness, setPreparedness] = useState<Preparedness>(emptyPreparedness);
   const [checkIn, setCheckIn] = useState<CheckInState>(idleState);
+  const [presence, setPresence] = useState<Presence>({ autoEscalation: false });
 
   const { earthquakes, loading: earthquakesLoading, error: earthquakesError } = useEarthquakes();
   const location = useUserLocation(settings.gpsEnabled);
@@ -114,6 +132,7 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
       subscribeTrustedContacts(uid, setContacts),
       subscribeMedicalInfo(uid, setMedical),
       subscribePreparedness(uid, setPreparedness),
+      subscribePresence(uid, setPresence),
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, [uid]);
@@ -169,6 +188,9 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
       stopAlarm();
       setCheckIn({ ...current, phase: 'escalated', reason });
       saveCheckIn(reason, current.trigger);
+      if (reason === 'help' && uid && current.trigger?.serverCheckinId) {
+        answerServerCheckin(uid, current.trigger.serverCheckinId, 'help').catch(() => undefined);
+      }
 
       if (reason === 'no-response') {
         scheduleSafetyNotification(
@@ -187,14 +209,19 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [contacts, helpMessage, safetySettings.notifyLinkedContacts, saveCheckIn, stopAlarm, userName],
+    [contacts, helpMessage, safetySettings.notifyLinkedContacts, saveCheckIn, stopAlarm, uid, userName],
   );
 
   const begin = useCallback(
     (trigger: CheckInTrigger) => {
       if (checkInRef.current.phase === 'asking' || checkInRef.current.phase === 'escalated') return;
-      const seconds = trigger.drill ? DRILL_SECONDS : safetySettings.checkInMinutes * 60;
+      const seconds = trigger.deadline
+        ? Math.max(15, (trigger.deadline - Date.now()) / 1000)
+        : trigger.drill
+          ? DRILL_SECONDS
+          : safetySettings.checkInMinutes * 60;
       setCheckIn({ phase: 'asking', trigger, deadline: Date.now() + seconds * 1000 });
+      seenRef.current?.add(trigger.earthquake.id);
       Vibration.vibrate(ALARM_PATTERN, true);
       const prefix = trigger.drill ? 'Simulacro: ' : '';
       scheduleSafetyNotification(
@@ -324,18 +351,91 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
       stopAlarm();
       if (current.phase === 'asking' || current.phase === 'escalated') {
         saveCheckIn('safe', current.trigger);
+        if (uid && current.trigger?.serverCheckinId) {
+          // Detiene la escalada del servidor (llamadas a contactos).
+          answerServerCheckin(uid, current.trigger.serverCheckinId, 'safe').catch(() => undefined);
+        }
         setCheckIn({ ...current, phase: 'safe' });
       } else {
         setCheckIn(idleState);
       }
     },
-    [escalate, saveCheckIn, stopAlarm],
+    [escalate, saveCheckIn, stopAlarm, uid],
   );
 
   const dismiss = useCallback(() => {
     stopAlarm();
     setCheckIn(idleState);
   }, [stopAlarm]);
+
+  // Preguntas creadas por el servidor (escalada Premium).
+  useEffect(() => {
+    if (!uid) return;
+    return subscribePendingServerCheckins(uid, (items) => {
+      const pending = items.sort((a, b) => b.createdAt - a.createdAt)[0];
+      if (!pending) return;
+      const current = checkInRef.current;
+      if (current.phase === 'asking' || current.phase === 'escalated') {
+        // La app ya preguntaba por el mismo sismo: se enlaza para responderle al servidor.
+        if (current.trigger && !current.trigger.serverCheckinId && current.trigger.earthquake.id === pending.quakeId) {
+          setCheckIn({ ...current, trigger: { ...current.trigger, serverCheckinId: pending.id } });
+        }
+        return;
+      }
+      begin({
+        earthquake: {
+          id: pending.quakeId,
+          magnitude: pending.magnitude,
+          location: pending.place,
+          depthKm: 0,
+          occurredAt: pending.createdAt,
+          timeAgo: 'Ahora',
+          severity: pending.magnitude >= 6 ? 'Muy fuerte' : pending.magnitude >= 5 ? 'Fuerte' : 'Moderado',
+        },
+        distanceKm: pending.distanceKm,
+        drill: false,
+        serverCheckinId: pending.id,
+        deadline: pending.deadline,
+      });
+    });
+  }, [begin, uid]);
+
+  // Botones "Estoy bien" / "Necesito ayuda" de la notificación del servidor.
+  useEffect(() => {
+    registerSafetyNotificationActions();
+    if (!uid) return;
+    return onSafetyNotificationAction((action, data) => {
+      const checkinId = typeof data.checkinId === 'string' ? data.checkinId : null;
+      if (!checkinId || action === 'open') return;
+      answerServerCheckin(uid, checkinId, action).catch(() => undefined);
+      if (checkInRef.current.trigger?.serverCheckinId === checkinId) {
+        if (action === 'safe') respond('safe');
+        else escalate('help');
+      }
+    });
+  }, [escalate, respond, uid]);
+
+  // Ubicación aproximada para la escalada en el servidor (solo con consentimiento).
+  useEffect(() => {
+    const here = location.location;
+    if (!uid || !presence.autoEscalation || !here) return;
+    const moved =
+      presence.latitude === undefined || presence.longitude === undefined
+        ? Infinity
+        : distanceKm(here, { latitude: presence.latitude, longitude: presence.longitude });
+    const stale = !presence.updatedAt || Date.now() - presence.updatedAt > PRESENCE_MAX_AGE_MS;
+    if (moved > PRESENCE_MIN_MOVE_KM || stale) {
+      savePresence(uid, true, here).catch((error) => console.warn('No se pudo actualizar la ubicación aproximada.', error));
+    }
+  }, [location.location, presence, uid]);
+
+  const setAutoEscalation = useCallback(
+    async (enabled: boolean) => {
+      if (!uid) return;
+      await savePresence(uid, enabled, enabled ? location.location : null);
+    },
+    [location.location, uid],
+  );
 
   useEffect(() => () => Vibration.cancel(), []);
 
@@ -357,8 +457,12 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
       respond,
       dismiss,
       helpMessage,
+      presence,
+      setAutoEscalation,
     }),
     [
+      presence,
+      setAutoEscalation,
       checkIn,
       contacts,
       dismiss,

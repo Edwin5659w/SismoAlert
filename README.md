@@ -15,6 +15,10 @@ Aplicación móvil hecha con Expo y React Native para consultar sismos en Colomb
 - Contactos de confianza, ficha de emergencia (tipo de sangre, alergias, medicamentos), kit de emergencia de 72 horas, plan familiar y simulacros.
 - Guía de qué hacer antes, durante y después de un sismo, y líneas de emergencia de Colombia.
 
+**Premium (suscripción)**
+- Sin anuncios (AdMob con formulario de consentimiento; nunca en pantallas de emergencia).
+- Escalada automática desde el servidor: si no respondes a "¿Estás bien?" tras un sismo fuerte, Twilio llama y envía SMS a tus contactos de confianza, aunque la app esté cerrada.
+
 **Cuenta**
 - Registro, inicio de sesión, recuperación de contraseña y verificación de correo.
 - Notificaciones push y preferencias de alertas (magnitud, radio, ubicación).
@@ -62,6 +66,28 @@ npm run android      # abrir en Android
 npm run ios          # abrir en iOS
 ```
 
+## Monetización y escalada Premium
+
+La app funciona sin configurar esto (todos los usuarios quedan en modo gratis y sin anuncios en Expo Go). Para activarlo:
+
+1. **Development build:** AdMob y RevenueCat no funcionan en Expo Go. Genera una APK con `npx eas-cli@latest build --profile development --platform android`.
+2. **AdMob:** crea la app en AdMob y reemplaza los IDs de prueba de `app.json` (`androidAppId`, `iosAppId`). Pon los bloques en `.env` (`EXPO_PUBLIC_ADMOB_*`). En desarrollo siempre se usan anuncios de prueba.
+3. **RevenueCat:** crea el entitlement `premium`, una oferta con planes mensual y anual, y pon las claves **públicas** en `.env` (`EXPO_PUBLIC_REVENUECAT_*`).
+4. **Cloud Functions** (requiere el plan Blaze de Firebase):
+   ```bash
+   cd functions && npm install && npm test && cd ..
+   npx firebase-tools functions:secrets:set REVENUECAT_SECRET_KEY
+   npx firebase-tools functions:secrets:set REVENUECAT_WEBHOOK_AUTH
+   npx firebase-tools functions:secrets:set TWILIO_ACCOUNT_SID
+   npx firebase-tools functions:secrets:set TWILIO_AUTH_TOKEN
+   cp functions/.env.example functions/.env   # número de Twilio y modo simulado
+   npx firebase-tools deploy --only functions,firestore:rules
+   ```
+5. En RevenueCat → Integrations → Webhooks, usa la URL de `revenuecatWebhook` y como *Authorization header* el mismo valor de `REVENUECAT_WEBHOOK_AUTH`.
+6. Deja `TWILIO_DRY_RUN=true` hasta probar: así no se hacen llamadas reales.
+
+**Seguridad del modelo:** el estado Premium lo escribe solo el servidor en `entitlements/{uid}` (las reglas impiden que la app lo cambie) y la escalada vuelve a verificarlo antes de llamar. Twilio **nunca** llama al 123: llama a los contactos de confianza, que deciden si pedir ayuda.
+
 ## Datos en Firestore
 
 | Ruta | Contenido |
@@ -74,6 +100,10 @@ npm run ios          # abrir en iOS
 | `users/{uid}/checkins/{id}` | Historial de respuestas después de un sismo |
 | `earthquakes/{id}` | Sismos sincronizados desde SGC/USGS |
 | `publicProfiles/{correo}` | Token push para que los contactos vinculados reciban avisos |
+| `entitlements/{uid}` | Estado de la suscripción (solo lo escribe el servidor) |
+| `presence/{uid}` | Consentimiento y ubicación aproximada (≈1 km) para la escalada Premium |
+| `users/{uid}/serverCheckins/{id}` | Preguntas "¿Estás bien?" creadas por el servidor |
+| `escalations`, `serverEvents`, `escalationQuota` | Uso interno del servidor (auditoría y límites) |
 
 Cada usuario solo puede leer y escribir sus propios datos.
 
@@ -89,3 +119,5 @@ Cada usuario solo puede leer y escribir sus propios datos.
 | `services/`   | Acceso a Firestore y fuentes de sismos |
 | `lib/`        | Utilidades: Firebase, notificaciones, distancias, emergencias |
 | `data/`       | Kit de emergencia, consejos y datos de ejemplo |
+| `config/`     | Claves públicas de Firebase y configuración de monetización |
+| `functions/`  | Cloud Functions: webhook de RevenueCat, vigilancia de sismos y escalada con Twilio |

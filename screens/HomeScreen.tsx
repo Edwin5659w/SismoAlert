@@ -12,11 +12,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BannerSlot } from '../components/ads/BannerSlot';
 import { CompactQuakeRow } from '../components/home/CompactQuakeRow';
 import { LatestQuakeCard } from '../components/home/LatestQuakeCard';
 import { PreparednessCard } from '../components/home/PreparednessCard';
 import { ZoneLevel, ZoneStatusCard } from '../components/home/ZoneStatusCard';
 import { SosButton } from '../components/safety/SosButton';
+import { useAds } from '../context/AdsContext';
 import { useAuth } from '../context/AuthContext';
 import { useSafety } from '../context/SafetyContext';
 import { tipOfTheDay } from '../data/preparedness';
@@ -94,6 +96,11 @@ export function HomeScreen() {
     startDrill,
   } = useSafety();
   const syncStatus = useEarthquakeSyncStatus();
+  const { registerInterstitialOpportunity } = useAds();
+  const openDetail = (id: string) => {
+    registerInterstitialOpportunity();
+    navigation.navigate('Detalle', { id });
+  };
 
   const radiusKm = parseRadiusKm(settings.alertRadius);
   const here = location.location;
@@ -233,7 +240,7 @@ export function HomeScreen() {
           <LatestQuakeCard
             earthquake={latest.earthquake}
             distanceKm={latest.distanceKm}
-            onPress={() => navigation.navigate('Detalle', { id: latest.earthquake.id })}
+            onPress={() => openDetail(latest.earthquake.id)}
           />
         ) : !earthquakesLoading ? (
           <Text style={styles.empty}>Aún no hay sismos registrados. Desliza hacia abajo para actualizar.</Text>
@@ -267,7 +274,7 @@ export function HomeScreen() {
                 earthquake={earthquake}
                 distanceKm={distanceKm}
                 last={index === nearbyList.length - 1}
-                onPress={() => navigation.navigate('Detalle', { id: earthquake.id })}
+                onPress={() => openDetail(earthquake.id)}
               />
             ))
           ) : (
@@ -298,6 +305,8 @@ export function HomeScreen() {
             <Text style={styles.tipText}>{tipOfTheDay()}</Text>
           </View>
         </View>
+
+        <BannerSlot />
       </ScrollView>
     </SafeAreaView>
   );

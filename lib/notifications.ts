@@ -321,3 +321,51 @@ export async function cancelSafetyNotification(id: string | null | undefined) {
     // Si ya se mostró, no hay nada que cancelar.
   }
 }
+
+export const SAFETY_CATEGORY = 'safety-check';
+
+/**
+ * Botones "Estoy bien" / "Necesito ayuda" dentro de la propia notificación,
+ * para responder sin desbloquear el celular. Abren la app para que la respuesta
+ * se guarde de forma confiable.
+ */
+export async function registerSafetyNotificationActions() {
+  try {
+    const notifications = await loadNotificationsModule();
+    if (!notifications) return;
+    await notifications.setNotificationCategoryAsync(SAFETY_CATEGORY, [
+      { identifier: 'safe', buttonTitle: 'Estoy bien', options: { opensAppToForeground: true } },
+      {
+        identifier: 'help',
+        buttonTitle: 'Necesito ayuda',
+        options: { opensAppToForeground: true, isDestructive: true },
+      },
+    ]);
+  } catch (error) {
+    console.warn('No se pudieron registrar las acciones de seguridad.', error);
+  }
+}
+
+/** Escucha cuando el usuario toca un botón de la notificación de seguridad. */
+export function onSafetyNotificationAction(
+  handler: (action: 'safe' | 'help' | 'open', data: Record<string, unknown>) => void,
+) {
+  let cancelled = false;
+  let remove = () => {};
+  loadNotificationsModule()
+    .then((notifications) => {
+      if (!notifications || cancelled) return;
+      const subscription = notifications.addNotificationResponseReceivedListener((response) => {
+        const data = (response.notification.request.content.data ?? {}) as Record<string, unknown>;
+        if (data.type !== 'server-checkin') return;
+        const id = response.actionIdentifier;
+        handler(id === 'safe' || id === 'help' ? id : 'open', data);
+      });
+      remove = () => subscription.remove();
+    })
+    .catch(() => undefined);
+  return () => {
+    cancelled = true;
+    remove();
+  };
+}

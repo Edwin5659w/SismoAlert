@@ -220,6 +220,42 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
 
+    // ---------- Monetización y escalada Premium ----------
+
+    // Estado de suscripción: lo escribe SOLO Cloud Functions (Admin SDK ignora estas reglas).
+    match /entitlements/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Consentimiento + ubicación aproximada para la escalada en el servidor.
+    match /presence/{userId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+        request.resource.data.keys().hasAll(['autoEscalation', 'updatedAt']) &&
+        request.resource.data.keys().hasOnly(['autoEscalation', 'latitude', 'longitude', 'updatedAt']) &&
+        request.resource.data.autoEscalation is bool &&
+        (!('latitude' in request.resource.data) ||
+          (request.resource.data.latitude is number &&
+            request.resource.data.latitude >= -90 && request.resource.data.latitude <= 90)) &&
+        (!('longitude' in request.resource.data) ||
+          (request.resource.data.longitude is number &&
+            request.resource.data.longitude >= -180 && request.resource.data.longitude <= 180)) &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    // Preguntas "¿Estás bien?" creadas por el servidor. La app solo puede responderlas
+    // una vez, mientras estén pendientes, con "safe" o "help".
+    match /users/{userId}/serverCheckins/{checkinId} {
+      allow read: if isOwner(userId);
+      allow update: if isOwner(userId) &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status in ['safe', 'help'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt']) &&
+        request.resource.data.respondedAt == request.time;
+      allow create, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

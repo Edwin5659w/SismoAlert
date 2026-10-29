@@ -54,6 +54,7 @@ export type RootTabParamList = {
   Detalle: { id: string };
   Contactos: undefined;
   ContactosConfianza: undefined;
+  Premium: undefined;
   FichaMedica: undefined;
   Preparacion: undefined;
 };
@@ -107,4 +108,8 @@ export type CheckInTrigger = {
   earthquake: Earthquake;
   distanceKm?: number;
   drill: boolean;
+  /** Si la pregunta la creó el servidor (escalada Premium). */
+  serverCheckinId?: string;
+  /** Fecha límite fijada por el servidor. */
+  deadline?: number;
 };

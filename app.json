@@ -8,7 +8,13 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "plugins": [
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SismoAlert usa tu ubicación para saber qué tan cerca ocurren los sismos y compartirla con tus contactos si pides ayuda."
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,

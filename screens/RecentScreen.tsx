@@ -8,7 +8,8 @@ import { OptionPills } from '../components/OptionPills';
 import { QuakeListItem } from '../components/QuakeListItem';
 import { SectionTitle } from '../components/SectionTitle';
 import { runEarthquakeSync, useEarthquakeSyncStatus } from '../hooks/useEarthquakeSync';
-import { useEarthquakes } from '../hooks/useEarthquakes';
+import { useSafety } from '../context/SafetyContext';
+import { quakeDistanceKm } from '../lib/geo';
 import { parseMagnitude } from '../lib/magnitude';
 import { colors, spacing } from '../theme';
 import { RootTabParamList } from '../types';
@@ -17,7 +18,7 @@ const FILTER_OPTIONS = ['Todos', '3.0+', '4.0+', '5.0+'];
 
 export function RecentScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
-  const { earthquakes, loading, error } = useEarthquakes();
+  const { earthquakes, earthquakesLoading: loading, earthquakesError: error, location } = useSafety();
   const syncStatus = useEarthquakeSyncStatus();
   const [filter, setFilter] = useState('Todos');
 
@@ -60,6 +61,7 @@ export function RecentScreen() {
         renderItem={({ item }) => (
           <QuakeListItem
             earthquake={item}
+            distanceKm={quakeDistanceKm(item, location.location)}
             onPress={(earthquake) => navigation.navigate('Detalle', { id: earthquake.id })}
           />
         )}

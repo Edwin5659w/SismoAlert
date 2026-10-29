@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DetailRow } from '../components/DetailRow';
 import { Header } from '../components/Header';
 import { SectionTitle } from '../components/SectionTitle';
+import { useSafety } from '../context/SafetyContext';
+import { formatDistance, quakeDistanceKm } from '../lib/geo';
 import { magnitudeColor, severityColors } from '../lib/magnitude';
 import { formatLocalTime, formatUtcTime } from '../lib/time';
 import { subscribeEarthquake } from '../services/earthquakes';
@@ -16,6 +18,7 @@ type DetailScreenProps = BottomTabScreenProps<RootTabParamList, 'Detalle'>;
 
 export function DetailScreen({ navigation, route }: DetailScreenProps) {
   const { id } = route.params;
+  const { location } = useSafety();
   const [earthquake, setEarthquake] = useState<Earthquake | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -80,6 +83,12 @@ export function DetailScreen({ navigation, route }: DetailScreenProps) {
             <SectionTitle title="Datos del evento" />
             <DetailRow label="Ubicación" value={earthquake.location} />
             <DetailRow label="Profundidad" value={`${earthquake.depthKm} km`} />
+            {quakeDistanceKm(earthquake, location.location) !== undefined ? (
+              <DetailRow
+                label="Distancia a ti"
+                value={formatDistance(quakeDistanceKm(earthquake, location.location)).replace(/^a /, '')}
+              />
+            ) : null}
             <DetailRow label="Hora local" value={formatLocalTime(earthquake.occurredAt)} />
             <DetailRow label="Hora UTC" value={formatUtcTime(earthquake.occurredAt)} />
             <DetailRow label="Registrado" value={earthquake.timeAgo} />

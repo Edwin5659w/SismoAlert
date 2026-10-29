@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { formatDistance } from '../lib/geo';
 import { magnitudeColor, severityColors } from '../lib/magnitude';
 import { formatLocalTime, formatUtcTime } from '../lib/time';
 import { colors, radius, spacing } from '../theme';
@@ -7,9 +8,10 @@ import { Earthquake } from '../types';
 type QuakeListItemProps = {
   earthquake: Earthquake;
   onPress: (earthquake: Earthquake) => void;
+  distanceKm?: number;
 };
 
-export function QuakeListItem({ earthquake, onPress }: QuakeListItemProps) {
+export function QuakeListItem({ earthquake, onPress, distanceKm }: QuakeListItemProps) {
   const magColor = magnitudeColor(earthquake.magnitude);
   const severityColor = severityColors[earthquake.severity];
 
@@ -27,6 +29,9 @@ export function QuakeListItem({ earthquake, onPress }: QuakeListItemProps) {
         <Text style={styles.meta}>
           Profundidad {earthquake.depthKm} km · {earthquake.timeAgo}
         </Text>
+        {distanceKm !== undefined ? (
+          <Text style={[styles.meta, styles.distance]}>{formatDistance(distanceKm)} de ti</Text>
+        ) : null}
         <Text style={styles.meta}>
           {formatLocalTime(earthquake.occurredAt)} · {formatUtcTime(earthquake.occurredAt)}
         </Text>
@@ -80,6 +85,10 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 12,
     marginTop: 4,
+  },
+  distance: {
+    color: colors.accent,
+    fontWeight: '600',
   },
   severityChip: {
     alignSelf: 'flex-start',

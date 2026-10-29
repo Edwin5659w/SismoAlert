@@ -1,7 +1,9 @@
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Header } from '../components/Header';
+import { BackHeader } from '../components/BackHeader';
 import { OptionPills } from '../components/OptionPills';
 import { SectionTitle } from '../components/SectionTitle';
 import { SettingItem } from '../components/SettingItem';
@@ -12,12 +14,13 @@ import { parseMagnitude } from '../lib/magnitude';
 import { formatTimeAgo } from '../lib/time';
 import { defaultSettings, saveUserSettings, subscribeUserSettings } from '../services/userSettings';
 import { colors, radius, spacing } from '../theme';
-import { UserSettings } from '../types';
+import { RootTabParamList, UserSettings } from '../types';
 
 const MAGNITUDE_OPTIONS = ['3.0+', '4.0+', '5.0+'];
 const RADIUS_OPTIONS = ['20 km', '100 km', '150 km', '300 km'];
 
 export function AlertsScreen() {
+  const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { user } = useAuth();
   const { earthquakes } = useEarthquakes();
   const syncStatus = useEarthquakeSyncStatus();
@@ -59,7 +62,8 @@ export function AlertsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Header
+        <BackHeader
+          onBack={() => navigation.goBack()}
           title="Centro de alertas"
           subtitle={saving ? 'Guardando en Firebase…' : 'Umbrales y sincronización'}
         />

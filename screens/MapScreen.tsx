@@ -7,7 +7,8 @@ import { Header } from '../components/Header';
 import { OptionPills } from '../components/OptionPills';
 import { QuakeMap } from '../components/QuakeMap';
 import { SectionTitle } from '../components/SectionTitle';
-import { useEarthquakes } from '../hooks/useEarthquakes';
+import { useSafety } from '../context/SafetyContext';
+import { parseRadiusKm } from '../lib/geo';
 import { parseMagnitude } from '../lib/magnitude';
 import { colors, spacing } from '../theme';
 import { RootTabParamList } from '../types';
@@ -16,7 +17,7 @@ const FILTER_OPTIONS = ['Todos', '3.0+', '4.0+', '5.0+'];
 
 export function MapScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
-  const { earthquakes, loading, error } = useEarthquakes();
+  const { earthquakes, earthquakesLoading: loading, earthquakesError: error, location, settings } = useSafety();
   const [filter, setFilter] = useState('Todos');
 
   const mapped = useMemo(
@@ -40,6 +41,15 @@ export function MapScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <QuakeMap
           earthquakes={mapped}
+          user={
+            location.location
+              ? {
+                  latitude: location.location.latitude,
+                  longitude: location.location.longitude,
+                  radiusKm: parseRadiusKm(settings.alertRadius),
+                }
+              : undefined
+          }
           onSelect={(id) => navigation.navigate('Detalle', { id })}
         />
       </View>

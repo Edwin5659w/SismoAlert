@@ -9,7 +9,6 @@ import { OptionPills } from '../components/OptionPills';
 import { QuakeListItem } from '../components/QuakeListItem';
 import { SectionTitle } from '../components/SectionTitle';
 import { runEarthquakeSync, useEarthquakeSyncStatus } from '../hooks/useEarthquakeSync';
-import { useAds } from '../context/AdsContext';
 import { useSafety } from '../context/SafetyContext';
 import { quakeDistanceKm } from '../lib/geo';
 import { parseMagnitude } from '../lib/magnitude';
@@ -22,7 +21,6 @@ export function RecentScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { earthquakes, earthquakesLoading: loading, earthquakesError: error, location } = useSafety();
   const syncStatus = useEarthquakeSyncStatus();
-  const { registerInterstitialOpportunity } = useAds();
   const [filter, setFilter] = useState('Todos');
 
   const visibleEarthquakes = useMemo(
@@ -50,7 +48,7 @@ export function RecentScreen() {
         }
         ListHeaderComponent={
           <View>
-            <Header title="Sismos recientes" subtitle="Registros reales sincronizados en Firestore" />
+            <Header title="Sismos recientes" subtitle="Datos del Servicio Geológico Colombiano" />
             <SectionTitle title="Filtrar por magnitud" caption="Desliza hacia abajo para actualizar" />
             <OptionPills options={FILTER_OPTIONS} selected={filter} onSelect={setFilter} />
             {loading ? <ActivityIndicator color={colors.accent} style={styles.loader} /> : null}
@@ -66,10 +64,7 @@ export function RecentScreen() {
           <QuakeListItem
             earthquake={item}
             distanceKm={quakeDistanceKm(item, location.location)}
-            onPress={(earthquake) => {
-              registerInterstitialOpportunity();
-              navigation.navigate('Detalle', { id: earthquake.id });
-            }}
+            onPress={(earthquake) => navigation.navigate('Detalle', { id: earthquake.id })}
           />
         )}
       />

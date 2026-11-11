@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { runEarthquakeSync } from '../hooks/useEarthquakeSync';
 import { AlertsScreen } from '../screens/AlertsScreen';
 import { ContactsScreen } from '../screens/ContactsScreen';
+import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 import { DetailScreen } from '../screens/DetailScreen';
 import { GuideScreen } from '../screens/GuideScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -128,6 +129,7 @@ export function AppNavigator() {
         <Tab.Screen name="FichaMedica" component={MedicalScreen} options={hidden} />
         <Tab.Screen name="Preparacion" component={PreparednessScreen} options={hidden} />
         <Tab.Screen name="Premium" component={PaywallScreen} options={hidden} />
+        <Tab.Screen name="EliminarCuenta" component={DeleteAccountScreen} options={hidden} />
       </Tab.Navigator>
     </NavigationContainer>
   );

@@ -2,7 +2,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { adUnits } from '../../config/monetization';
+import { bannerUnitId, premiumEnabled } from '../../config/monetization';
 import { useAds } from '../../context/AdsContext';
 import { loadAdsModule } from '../../lib/ads';
 import { colors, radius, spacing } from '../../theme';
@@ -11,27 +11,31 @@ import { RootTabParamList } from '../../types';
 /**
  * Espacio para un banner. No ocupa lugar si el usuario es Premium, si no dio
  * consentimiento, si no hay inventario o si la app corre en Expo Go.
- * Regla: NO usar en pantallas de emergencia (SOS, alerta, guía, contactos).
+ * Solo en Inicio y en la lista de sismos. NO usar en pantallas de emergencia
+ * (SOS, alerta, guía, contactos, ficha) ni en el detalle de un sismo.
  */
 export function BannerSlot() {
   const { enabled } = useAds();
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const [failed, setFailed] = useState(false);
   const ads = loadAdsModule();
+  const unitId = bannerUnitId();
 
-  if (!enabled || !ads || failed) return null;
+  if (!enabled || !ads || !unitId || failed) return null;
   const { BannerAd, BannerAdSize } = ads;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.label}>Publicidad</Text>
-        <Pressable onPress={() => navigation.navigate('Premium')} hitSlop={8}>
-          <Text style={styles.remove}>Quitar anuncios</Text>
-        </Pressable>
+        {premiumEnabled ? (
+          <Pressable onPress={() => navigation.navigate('Premium')} hitSlop={8}>
+            <Text style={styles.remove}>Quitar anuncios</Text>
+          </Pressable>
+        ) : null}
       </View>
       <BannerAd
-        unitId={adUnits.banner}
+        unitId={unitId}
         size={BannerAdSize.LARGE_ANCHORED_ADAPTIVE_BANNER}
         onAdFailedToLoad={() => setFailed(true)}
       />

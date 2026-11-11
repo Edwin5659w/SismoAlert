@@ -11,6 +11,7 @@ import { OptionPills } from '../components/OptionPills';
 import { useAuth } from '../context/AuthContext';
 import { useSafety } from '../context/SafetyContext';
 import { callNumber, shareMessage } from '../lib/emergency';
+import { maybeAskForReview } from '../lib/review';
 import { validateEmail } from '../lib/validation';
 import { MAX_CONTACTS, addTrustedContact, normalizePhone, removeTrustedContact } from '../services/safety';
 import { colors, radius, spacing } from '../theme';
@@ -93,6 +94,7 @@ export function TrustedContactsScreen({ navigation }: Props) {
       reset();
       setAdding(false);
       setMessage({ type: 'success', text: 'Contacto guardado.' });
+      if (contacts.length === 0) maybeAskForReview();
     } catch {
       setMessage({ type: 'error', text: 'No se pudo guardar el contacto. Revisa tu conexión.' });
     } finally {

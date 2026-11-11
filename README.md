@@ -16,14 +16,24 @@ Aplicación móvil hecha con Expo y React Native para consultar sismos en Colomb
 - Guía de qué hacer antes, durante y después de un sismo, y líneas de emergencia de Colombia.
 
 **Premium (suscripción)**
-- Sin anuncios (AdMob con formulario de consentimiento; nunca en pantallas de emergencia).
+- Sin anuncios. Los usuarios gratuitos ven solo un banner pequeño en Inicio y en la lista de sismos (nunca anuncios de pantalla completa ni en pantallas de emergencia).
 - Escalada automática desde el servidor: si no respondes a "¿Estás bien?" tras un sismo fuerte, Twilio llama y envía SMS a tus contactos de confianza, aunque la app esté cerrada.
 
 **Cuenta**
 - Registro, inicio de sesión, recuperación de contraseña y verificación de correo.
+- Eliminación de la cuenta y de todos los datos desde la app (requisito de Google Play).
+- Calificación en la tienda con la ventana oficial de Google, en buenos momentos y sin insistir.
 - Notificaciones push y preferencias de alertas (magnitud, radio, ubicación).
 
 > La app no llama sola al 123: ningún teléfono lo permite sin que la persona toque la pantalla, y una llamada automática podría ser una falsa alarma. Por eso avisa primero a los contactos de confianza.
+
+## Publicar en Google Play
+
+Todo lo necesario está en la carpeta `store/`:
+- `store/PUBLICAR.md`: guía paso a paso (EAS, Play Console, prueba cerrada).
+- `store/FICHA_PLAY_STORE.md`: nombre, descripciones y gráficos de la ficha.
+- `store/DECLARACIONES_PLAY.md`: respuestas de "Contenido de la app" y "Seguridad de los datos".
+- `hosting/`: política de privacidad, términos y eliminación de cuenta (Firebase Hosting).
 
 ## Requisitos
 
@@ -68,7 +78,7 @@ npm run ios          # abrir en iOS
 
 ## Monetización y escalada Premium
 
-La app funciona sin configurar esto (todos los usuarios quedan en modo gratis y sin anuncios en Expo Go). Para activarlo:
+La primera versión sale **sin Premium**: está oculto hasta poner `EXPO_PUBLIC_PREMIUM_ENABLED=true`. Sin configurar AdMob tampoco se muestran anuncios. Para activarlo:
 
 1. **Development build:** AdMob y RevenueCat no funcionan en Expo Go. Genera una APK con `npx eas-cli@latest build --profile development --platform android`.
 2. **AdMob:** crea la app en AdMob y reemplaza los IDs de prueba de `app.json` (`androidAppId`, `iosAppId`). Pon los bloques en `.env` (`EXPO_PUBLIC_ADMOB_*`). En desarrollo siempre se usan anuncios de prueba.

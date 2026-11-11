@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react';
 import { AppState, Vibration } from 'react-native';
-import { runEarthquakeSync } from '../hooks/useEarthquakeSync';
+import { runEarthquakeSync, useEarthquakeSyncStatus } from '../hooks/useEarthquakeSync';
 import { useEarthquakes } from '../hooks/useEarthquakes';
 import { LocationState, useUserLocation } from '../hooks/useUserLocation';
 import {
@@ -19,6 +19,7 @@ import {
 } from '../lib/emergency';
 import { distanceKm, parseRadiusKm, quakeDistanceKm } from '../lib/geo';
 import { parseMagnitude } from '../lib/magnitude';
+import { getVerifiedQuakes } from '../lib/verifiedQuakes';
 import {
   cancelSafetyNotification,
   onSafetyNotificationAction,
@@ -117,6 +118,7 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
 
   const { earthquakes, loading: earthquakesLoading, error: earthquakesError } = useEarthquakes();
   const location = useUserLocation(settings.gpsEnabled);
+  const syncStatus = useEarthquakeSyncStatus();
 
   const seenRef = useRef<Set<string> | null>(null);
   const notificationRef = useRef<string | null>(null);
@@ -256,9 +258,10 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
     };
   }, [checkIn.phase, escalate]);
 
-  // Detecta sismos nuevos, fuertes y cercanos.
+  // Detecta sismos nuevos, fuertes y cercanos (solo los confirmados por la fuente oficial).
   useEffect(() => {
-    if (!uid || earthquakes.length === 0) return;
+    const verifiedQuakes = getVerifiedQuakes();
+    if (!uid || verifiedQuakes.length === 0) return;
     let cancelled = false;
 
     (async () => {
@@ -276,7 +279,7 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
       const threshold = parseMagnitude(safetySettings.checkInMagnitude);
       const radius = parseRadiusKm(settings.alertRadius);
 
-      const fresh = earthquakes.filter(
+      const fresh = verifiedQuakes.filter(
         (item) => !seen.has(item.id) && now - item.occurredAt <= RECENT_WINDOW_MS,
       );
       if (fresh.length === 0) return;
@@ -305,7 +308,7 @@ export function SafetyProvider({ children }: { children: ReactNode }) {
     };
   }, [
     begin,
-    earthquakes,
+    syncStatus.syncedAt,
     location.location,
     safetySettings.checkInEnabled,
     safetySettings.checkInMagnitude,

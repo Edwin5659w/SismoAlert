@@ -65,10 +65,10 @@ export function AlertsScreen() {
         <BackHeader
           onBack={() => navigation.goBack()}
           title="Centro de alertas"
-          subtitle={saving ? 'Guardando en Firebase…' : 'Umbrales y sincronización'}
+          subtitle={saving ? 'Guardando…' : 'Umbrales y sincronización'}
         />
 
-        <SectionTitle title="Estado de sincronización" caption="Base de datos Firestore" />
+        <SectionTitle title="Estado de sincronización" caption="Fuente oficial de sismos" />
         <SettingItem
           title={syncLabel}
           description={

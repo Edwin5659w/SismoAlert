@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PRIVACY_URL, SUPPORT_EMAIL, TERMS_URL } from '../config/app';
+import { premiumEnabled } from '../config/monetization';
 import { Header } from '../components/Header';
 import { NavRow } from '../components/NavRow';
 import { OptionPills } from '../components/OptionPills';
@@ -14,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { useEntitlement } from '../context/EntitlementContext';
 import { useSafety } from '../context/SafetyContext';
 import { refreshLocation } from '../hooks/useUserLocation';
+import { PLAY_STORE_URL, openStoreListing } from '../lib/review';
 import { saveSafetySettings } from '../services/safety';
 import { saveUserSettings } from '../services/userSettings';
 import { colors, radius, spacing } from '../theme';
@@ -64,7 +68,7 @@ export function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Header title="Perfil y ajustes" subtitle={saving ? 'Guardando en Firebase…' : 'Preferencias sincronizadas'} />
+        <Header title="Perfil y ajustes" subtitle={saving ? 'Guardando…' : 'Preferencias sincronizadas'} />
 
         <View style={styles.profile}>
           <View style={styles.avatar}>
@@ -79,20 +83,24 @@ export function SettingsScreen() {
           ) : null}
         </View>
 
-        <View style={{ height: spacing.md }} />
-        <NavRow
-          icon="sparkles"
-          title={isPremium ? 'SismoAlert Premium' : 'Hazte Premium'}
-          caption={
-            isPremium
-              ? 'Sin anuncios y llamada automática a tus contactos'
-              : 'Quita los anuncios y activa la llamada automática'
-          }
-          status={tier === 'loading' ? '…' : isPremium ? 'Activo' : activating ? 'Activando' : 'Ver planes'}
-          statusColor={isPremium ? colors.success : colors.warning}
-          tint={colors.warning}
-          onPress={() => navigation.navigate('Premium')}
-        />
+        {premiumEnabled ? (
+          <>
+            <View style={{ height: spacing.md }} />
+            <NavRow
+              icon="sparkles"
+              title={isPremium ? 'SismoAlert Premium' : 'Hazte Premium'}
+              caption={
+                isPremium
+                  ? 'Sin anuncios y llamada automática a tus contactos'
+                  : 'Quita los anuncios y activa la llamada automática'
+              }
+              status={tier === 'loading' ? '…' : isPremium ? 'Activo' : activating ? 'Activando' : 'Ver planes'}
+              statusColor={isPremium ? colors.success : colors.warning}
+              tint={colors.warning}
+              onPress={() => navigation.navigate('Premium')}
+            />
+          </>
+        ) : null}
 
         <Text style={styles.section}>Alertas</Text>
         <NavRow
@@ -139,24 +147,26 @@ export function SettingsScreen() {
           onValueChange={(notifyLinkedContacts) => updateSafety({ notifyLinkedContacts })}
         />
 
-        <PremiumGate
-          feature="Llamada automática a tus contactos"
-          description="Si no respondes, nuestro servidor llama y envía SMS a tus contactos aunque la app esté cerrada."
-        >
-          <SettingItem
-            title="Escalada automática por llamada y SMS"
-            description={
-              presence.autoEscalation
-                ? `Activa · ${contacts.length} contacto${contacts.length === 1 ? '' : 's'}. Compartimos tu ubicación aproximada (≈1 km) solo con el servidor de SismoAlert.`
-                : 'Al activarla aceptas compartir tu ubicación aproximada (≈1 km) para saber si un sismo te afecta.'
-            }
-            value={presence.autoEscalation}
-            onValueChange={(enabled) => {
-              if (enabled && !settings.gpsEnabled) toggleGps(true);
-              run(setAutoEscalation(enabled));
-            }}
-          />
-        </PremiumGate>
+        {premiumEnabled ? (
+          <PremiumGate
+            feature="Llamada automática a tus contactos"
+            description="Si no respondes, nuestro servidor llama y envía SMS a tus contactos aunque la app esté cerrada."
+          >
+            <SettingItem
+              title="Escalada automática por llamada y SMS"
+              description={
+                presence.autoEscalation
+                  ? `Activa · ${contacts.length} contacto${contacts.length === 1 ? '' : 's'}. Compartimos tu ubicación aproximada (≈1 km) solo con el servidor de SismoAlert.`
+                  : 'Al activarla aceptas compartir tu ubicación aproximada (≈1 km) para saber si un sismo te afecta.'
+              }
+              value={presence.autoEscalation}
+              onValueChange={(enabled) => {
+                if (enabled && !settings.gpsEnabled) toggleGps(true);
+                run(setAutoEscalation(enabled));
+              }}
+            />
+          </PremiumGate>
+        ) : null}
 
         <Text style={styles.section}>Seguridad</Text>
         <NavRow icon="people" title="Contactos de confianza" onPress={() => navigation.navigate('ContactosConfianza')} />
@@ -171,13 +181,46 @@ export function SettingsScreen() {
           />
         ) : null}
 
+        <Text style={styles.section}>Acerca de SismoAlert</Text>
+        <NavRow
+          icon="star"
+          title="Califica SismoAlert"
+          caption="Tu opinión ayuda a que más personas estén preparadas"
+          tint={colors.warning}
+          onPress={() => openStoreListing().catch(() => undefined)}
+        />
+        <NavRow
+          icon="share-social"
+          title="Recomendar la app"
+          onPress={() =>
+            Share.share({
+              message: `Yo uso SismoAlert para estar preparado ante sismos en Colombia. Descárgala: ${PLAY_STORE_URL}`,
+            }).catch(() => undefined)
+          }
+        />
+        {SUPPORT_EMAIL ? (
+          <NavRow
+            icon="mail"
+            title="Contacto y soporte"
+            caption={SUPPORT_EMAIL}
+            tint={colors.muted}
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=SismoAlert`)}
+          />
+        ) : null}
+        <NavRow icon="document-text" title="Política de privacidad" tint={colors.muted} onPress={() => Linking.openURL(PRIVACY_URL)} />
+        <NavRow icon="reader" title="Términos de uso" tint={colors.muted} onPress={() => Linking.openURL(TERMS_URL)} />
+
         <Pressable style={styles.logout} onPress={logout}>
           <Ionicons name="log-out-outline" size={18} color={colors.danger} />
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </Pressable>
 
+        <Pressable onPress={() => navigation.navigate('EliminarCuenta')} style={styles.deleteAccount}>
+          <Text style={styles.deleteAccountText}>Eliminar mi cuenta</Text>
+        </Pressable>
+
         <Text style={styles.footer}>
-          SismoAlert · Datos del Servicio Geológico Colombiano (respaldo USGS).{'\n'}
+          SismoAlert v{Constants.expoConfig?.version ?? '1.0.0'} · Datos del Servicio Geológico Colombiano (respaldo USGS).{'\n'}
           En una emergencia llama al 123.
         </Text>
       </ScrollView>
@@ -251,6 +294,17 @@ const styles = StyleSheet.create({
   logoutText: {
     color: colors.danger,
     fontWeight: '700',
+  },
+  deleteAccount: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  deleteAccountText: {
+    color: colors.mutedDim,
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   footer: {
     color: colors.mutedDim,

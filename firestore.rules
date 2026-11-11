@@ -63,7 +63,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read, delete: if isOwner(userId);
       allow create: if isOwner(userId) &&
         uidUnchanged(userId, request.resource.data) &&
         isValidUser(request.resource.data) &&
@@ -153,7 +153,7 @@ service cloud.firestore {
     }
 
     match /users/{userId}/private/preparedness {
-      allow read: if isOwner(userId);
+      allow read, delete: if isOwner(userId);
       allow create, update: if isOwner(userId) &&
         request.resource.data.keys().hasOnly([
           'kit', 'meetingPoint', 'familyPlan', 'lastDrillAt', 'updatedAt'
@@ -168,7 +168,7 @@ service cloud.firestore {
     }
 
     match /users/{userId}/private/safety {
-      allow read: if isOwner(userId);
+      allow read, delete: if isOwner(userId);
       allow create, update: if isOwner(userId) &&
         request.resource.data.keys().hasOnly([
           'checkInEnabled', 'checkInMagnitude', 'checkInMinutes', 'notifyLinkedContacts', 'updatedAt'
@@ -182,7 +182,8 @@ service cloud.firestore {
 
     // Historial del modo "¿Estás bien?": solo se agregan registros, no se editan.
     match /users/{userId}/checkins/{checkInId} {
-      allow read: if isOwner(userId);
+      // No se editan; solo se borran al eliminar la cuenta.
+      allow read, delete: if isOwner(userId);
       allow create: if isOwner(userId) &&
         request.resource.data.keys().hasAll([
           'status', 'drill', 'earthquakeId', 'magnitude', 'place', 'createdAt'
@@ -253,7 +254,8 @@ service cloud.firestore {
         request.resource.data.status in ['safe', 'help'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt']) &&
         request.resource.data.respondedAt == request.time;
-      allow create, delete: if false;
+      allow create: if false;
+      allow delete: if isOwner(userId);
     }
 
     match /{document=**} {

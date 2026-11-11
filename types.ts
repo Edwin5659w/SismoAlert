@@ -55,6 +55,7 @@ export type RootTabParamList = {
   Contactos: undefined;
   ContactosConfianza: undefined;
   Premium: undefined;
+  EliminarCuenta: undefined;
   FichaMedica: undefined;
   Preparacion: undefined;
 };

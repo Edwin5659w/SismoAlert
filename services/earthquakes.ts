@@ -11,6 +11,7 @@ import {
 import { seedEarthquakes } from '../data/mockEarthquakes';
 import { getFirebaseDb } from '../lib/firebase';
 import { formatTimeAgo } from '../lib/time';
+import { markVerified } from '../lib/verifiedQuakes';
 import { Earthquake, EarthquakeInput, SyncStatus } from '../types';
 import { fetchLatestEarthquakes } from './sources';
 
@@ -99,6 +100,8 @@ export async function syncEarthquakes(): Promise<SyncStatus> {
   const db = getFirebaseDb();
   const { source, earthquakes: fetched } = await fetchLatestEarthquakes();
   const earthquakes = fetched.filter(meetsRules);
+  // Se registran antes de escribir en Firestore: la alarma no depende de la base de datos.
+  markVerified(earthquakes);
 
   try {
     for (let index = 0; index < earthquakes.length; index += 400) {

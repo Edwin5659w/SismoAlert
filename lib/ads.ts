@@ -1,8 +1,6 @@
-import { adPolicy, adUnits } from '../config/monetization';
 import { hasNativeModule } from './nativeModules';
 
 type AdsModule = typeof import('react-native-google-mobile-ads');
-type Interstitial = ReturnType<AdsModule['InterstitialAd']['createForAdRequest']>;
 
 let cached: AdsModule | null | undefined;
 
@@ -70,69 +68,5 @@ export async function showPrivacyOptions() {
     await ads.AdsConsent.showPrivacyOptionsForm();
   } catch (error) {
     console.warn('No se pudo abrir el formulario de privacidad.', error);
-  }
-}
-
-/**
- * Anuncio de pantalla completa con límites de frecuencia.
- * La pantalla solo "avisa" que hubo una oportunidad (p. ej. abrir un detalle);
- * el gestor decide si corresponde mostrar algo.
- */
-export class InterstitialManager {
-  private ad: Interstitial | null = null;
-  private loaded = false;
-  private opportunities = 0;
-  private lastShownAt = 0;
-  private readonly startedAt = Date.now();
-  private unsubscribers: (() => void)[] = [];
-
-  constructor(private readonly ads: AdsModule) {}
-
-  start() {
-    if (this.ad) return;
-    const { AdEventType, InterstitialAd } = this.ads;
-    this.ad = InterstitialAd.createForAdRequest(adUnits.interstitial);
-    this.unsubscribers = [
-      this.ad.addAdEventListener(AdEventType.LOADED, () => {
-        this.loaded = true;
-      }),
-      this.ad.addAdEventListener(AdEventType.CLOSED, () => {
-        this.loaded = false;
-        this.ad?.load();
-      }),
-      this.ad.addAdEventListener(AdEventType.ERROR, () => {
-        this.loaded = false;
-        // Reintento suave: no saturar la red si no hay inventario.
-        setTimeout(() => this.ad?.load(), 60 * 1000);
-      }),
-    ];
-    this.ad.load();
-  }
-
-  /** Devuelve true si mostró un anuncio. `blocked` = el usuario está en un flujo crítico. */
-  registerOpportunity(blocked: boolean) {
-    this.opportunities += 1;
-    const now = Date.now();
-    const ready =
-      !blocked &&
-      this.loaded &&
-      this.opportunities >= adPolicy.interstitialEveryNOpportunities &&
-      now - this.startedAt >= adPolicy.interstitialGraceMs &&
-      now - this.lastShownAt >= adPolicy.interstitialCooldownMs;
-    if (!ready || !this.ad) return false;
-
-    this.opportunities = 0;
-    this.lastShownAt = now;
-    this.ad.show().catch(() => {
-      this.loaded = false;
-    });
-    return true;
-  }
-
-  stop() {
-    this.unsubscribers.forEach((unsubscribe) => unsubscribe());
-    this.unsubscribers = [];
-    this.ad = null;
-    this.loaded = false;
   }
 }

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSafety } from '../../context/SafetyContext';
 import { formatDistance } from '../../lib/geo';
 import { shareOnWhatsApp, textContacts } from '../../lib/emergency';
+import { maybeAskForReview } from '../../lib/review';
 import { colors, radius, spacing } from '../../theme';
 import { EmergencyActions } from './EmergencyActions';
 import { MedicalCardView } from './MedicalCardView';
@@ -210,7 +211,14 @@ export function SafetyOverlay() {
                   <Ionicons name="logo-whatsapp" size={18} color={colors.success} />
                   <Text style={styles.secondaryText}>Contarlo por WhatsApp</Text>
                 </Pressable>
-                <Pressable onPress={dismiss} style={styles.closeButton}>
+                <Pressable
+                  onPress={() => {
+                    dismiss();
+                    // Buen momento: la persona está bien y la app le ayudó.
+                    maybeAskForReview();
+                  }}
+                  style={styles.closeButton}
+                >
                   <Text style={styles.closeText}>Cerrar</Text>
                 </Pressable>
               </View>

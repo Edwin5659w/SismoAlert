@@ -14,53 +14,33 @@ export const revenueCatApiKey =
     android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
   }) ?? '';
 
-// Bloques de prueba oficiales de Google (no generan ingresos ni sanciones).
-const TEST_UNITS = {
-  banner: Platform.select({
-    ios: 'ca-app-pub-3940256099942544/2435281174',
-    default: 'ca-app-pub-3940256099942544/9214589741',
-  }),
-  interstitial: Platform.select({
-    ios: 'ca-app-pub-3940256099942544/4411468910',
-    default: 'ca-app-pub-3940256099942544/1033173712',
-  }),
-};
+/**
+ * Premium (suscripción + escalada por llamada) se activa solo cuando está configurado:
+ * EXPO_PUBLIC_PREMIUM_ENABLED=true y la clave de RevenueCat. Mientras tanto la app
+ * no muestra planes ni botones de compra (primera versión gratuita).
+ */
+export const premiumEnabled =
+  process.env.EXPO_PUBLIC_PREMIUM_ENABLED === 'true' && Boolean(revenueCatApiKey);
 
-function unit(kind: 'banner' | 'interstitial') {
-  const configured =
-    kind === 'banner'
-      ? Platform.select({
-          ios: process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS,
-          android: process.env.EXPO_PUBLIC_ADMOB_BANNER_ANDROID,
-        })
-      : Platform.select({
-          ios: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS,
-          android: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID,
-        });
-  // En desarrollo SIEMPRE se usan anuncios de prueba: hacer clic en anuncios reales
-  // propios puede hacer que AdMob suspenda la cuenta.
-  if (__DEV__ || !configured) return TEST_UNITS[kind];
-  return configured;
+// Bloque de banner de prueba oficial de Google (no genera ingresos ni sanciones).
+const TEST_BANNER = Platform.select({
+  ios: 'ca-app-pub-3940256099942544/2435281174',
+  default: 'ca-app-pub-3940256099942544/9214589741',
+});
+
+/**
+ * Bloque del banner. En desarrollo SIEMPRE el de prueba (hacer clic en anuncios
+ * reales propios puede suspender la cuenta de AdMob). En producción, si no hay
+ * un bloque real configurado, no se muestra ningún anuncio.
+ */
+export function bannerUnitId(): string | null {
+  const configured = Platform.select({
+    ios: process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS,
+    android: process.env.EXPO_PUBLIC_ADMOB_BANNER_ANDROID,
+  });
+  if (__DEV__) return TEST_BANNER ?? null;
+  return configured || null;
 }
-
-export const adUnits = {
-  get banner() {
-    return unit('banner');
-  },
-  get interstitial() {
-    return unit('interstitial');
-  },
-};
-
-/** Reglas de frecuencia para no saturar al usuario. */
-export const adPolicy = {
-  /** Tiempo mínimo entre anuncios de pantalla completa. */
-  interstitialCooldownMs: 4 * 60 * 1000,
-  /** No mostrar pantalla completa en los primeros minutos de la sesión. */
-  interstitialGraceMs: 2 * 60 * 1000,
-  /** Cuántas "oportunidades" (p. ej. abrir detalles) antes de mostrar uno. */
-  interstitialEveryNOpportunities: 3,
-};
 
 export const premiumBenefits = [
   {
@@ -71,7 +51,7 @@ export const premiumBenefits = [
   {
     icon: 'eye-off' as const,
     title: 'Sin anuncios',
-    text: 'Usa SismoAlert sin interrupciones.',
+    text: 'Quita el banner de publicidad.',
   },
   {
     icon: 'notifications' as const,

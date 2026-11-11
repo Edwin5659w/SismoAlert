@@ -19,5 +19,14 @@
         "npm --prefix functions run build"
       ]
     }
-  ]
+  ],
+  "hosting": {
+    "public": "hosting",
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ]
+  }
 }

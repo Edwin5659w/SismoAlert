@@ -1,29 +1,29 @@
-import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { InterstitialManager, gatherConsentAndInitialize, loadAdsModule, showPrivacyOptions } from '../lib/ads';
+import { ReactNode, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { bannerUnitId } from '../config/monetization';
+import { gatherConsentAndInitialize, showPrivacyOptions } from '../lib/ads';
 import { useEntitlement } from './EntitlementContext';
-import { useSafety } from './SafetyContext';
 
+/**
+ * Publicidad discreta: solo un banner pequeño, nunca anuncios de pantalla completa
+ * (en una app de emergencias interrumpirían en el peor momento).
+ */
 type AdsContextValue = {
-  /** Se pueden mostrar anuncios: usuario Free, consentimiento dado y SDK disponible. */
+  /** Se puede mostrar el banner: usuario Free, consentimiento dado, SDK y bloque disponibles. */
   enabled: boolean;
   privacyOptionsRequired: boolean;
   openPrivacyOptions: () => Promise<void>;
-  /** Avisar de una oportunidad natural para un anuncio de pantalla completa. */
-  registerInterstitialOpportunity: () => void;
 };
 
 const AdsContext = createContext<AdsContextValue | undefined>(undefined);
 
 export function AdsProvider({ children }: { children: ReactNode }) {
   const { tier, adFree } = useEntitlement();
-  const { checkIn } = useSafety();
   const [canRequestAds, setCanRequestAds] = useState(false);
   const [privacyOptionsRequired, setPrivacyOptionsRequired] = useState(false);
-  const managerRef = useRef<InterstitialManager | null>(null);
   const startedRef = useRef(false);
 
   // Premium nunca inicializa el SDK de anuncios (ni pide consentimiento).
-  const wantsAds = tier === 'free' && !adFree;
+  const wantsAds = tier === 'free' && !adFree && bannerUnitId() !== null;
 
   useEffect(() => {
     if (!wantsAds || startedRef.current) return;
@@ -43,35 +43,9 @@ export function AdsProvider({ children }: { children: ReactNode }) {
 
   const enabled = wantsAds && canRequestAds;
 
-  useEffect(() => {
-    const ads = loadAdsModule();
-    if (!enabled || !ads) {
-      managerRef.current?.stop();
-      managerRef.current = null;
-      return;
-    }
-    const manager = new InterstitialManager(ads);
-    manager.start();
-    managerRef.current = manager;
-    return () => manager.stop();
-  }, [enabled]);
-
-  // Nunca interrumpir una alerta, un SOS o un simulacro.
-  const blockedRef = useRef(false);
-  blockedRef.current = checkIn.phase !== 'idle';
-
-  const registerInterstitialOpportunity = useCallback(() => {
-    managerRef.current?.registerOpportunity(blockedRef.current);
-  }, []);
-
   const value = useMemo<AdsContextValue>(
-    () => ({
-      enabled,
-      privacyOptionsRequired,
-      openPrivacyOptions: showPrivacyOptions,
-      registerInterstitialOpportunity,
-    }),
-    [enabled, privacyOptionsRequired, registerInterstitialOpportunity],
+    () => ({ enabled, privacyOptionsRequired, openPrivacyOptions: showPrivacyOptions }),
+    [enabled, privacyOptionsRequired],
   );
 
   return <AdsContext.Provider value={value}>{children}</AdsContext.Provider>;

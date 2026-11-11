@@ -2,12 +2,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { SafetyOverlay } from './components/safety/SafetyOverlay';
 import { AdsProvider } from './context/AdsContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { EntitlementProvider } from './context/EntitlementContext';
 import { SafetyProvider } from './context/SafetyContext';
 import { getFirebaseAuth } from './lib/firebase';
+import { recordAppLaunch } from './lib/review';
 import { registerForPushNotificationsAsync, saveExpoPushToken, setupNotificationListeners } from './lib/notifications';
 import { AppNavigator, navigationRef } from './navigation/AppNavigator';
 import { AuthFlow } from './screens/AuthFlow';
@@ -98,12 +100,18 @@ function Root() {
 }
 
 export default function App() {
+  useEffect(() => {
+    recordAppLaunch();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <AuthProvider>
-        <Root />
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <Root />
+        </AuthProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

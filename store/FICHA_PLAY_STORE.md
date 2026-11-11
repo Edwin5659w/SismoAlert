@@ -10,7 +10,7 @@ Textos listos para copiar en Play Console → **Presencia en la tienda → Ficha
 | Paquete | `com.sismoalert.app` |
 | Categoría | Herramientas |
 | Etiquetas | Seguridad, Clima y alertas, Herramientas |
-| Correo de contacto | *(tu correo de soporte)* |
+| Correo de contacto | edwinmolina154@gmail.com |
 | Sitio web | https://sismoalert-ac8cf.web.app |
 | Política de privacidad | https://sismoalert-ac8cf.web.app/privacidad |
 

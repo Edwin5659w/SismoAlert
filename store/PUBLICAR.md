@@ -4,8 +4,8 @@ Guía paso a paso para la primera versión (gratuita). Tiempo estimado: 1 día d
 **14 días de prueba cerrada** si tu cuenta de desarrollador es personal y nueva.
 
 ## 0. Antes de empezar
-- [ ] Reemplaza `[CORREO DE CONTACTO]` y `[NOMBRE DEL RESPONSABLE]` en `hosting/*.html`.
-- [ ] Pon tu correo de soporte en `.env`: `EXPO_PUBLIC_SUPPORT_EMAIL=...`.
+- [x] Datos de contacto en `hosting/*.html` (Edwin Molina · edwinmolina154@gmail.com).
+- [x] Correo de soporte en `.env`: `EXPO_PUBLIC_SUPPORT_EMAIL=edwinmolina154@gmail.com`.
 - [ ] Publica las reglas y las páginas web (gratis, sin plan Blaze):
   ```bash
   npx firebase-tools login

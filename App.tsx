@@ -2,10 +2,18 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { SafetyOverlay } from './components/safety/SafetyOverlay';
+import { AdsProvider } from './context/AdsContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { EntitlementProvider } from './context/EntitlementContext';
+import { SafetyProvider } from './context/SafetyContext';
+import { getFirebaseAuth } from './lib/firebase';
+import { recordAppLaunch } from './lib/review';
 import { registerForPushNotificationsAsync, saveExpoPushToken, setupNotificationListeners } from './lib/notifications';
 import { AppNavigator, navigationRef } from './navigation/AppNavigator';
 import { AuthFlow } from './screens/AuthFlow';
+import { publishSafetyProfile } from './services/safety';
 import { colors } from './theme';
 
 function NotificationBridge({ userId }: { userId: string | null }) {
@@ -23,6 +31,13 @@ function NotificationBridge({ userId }: { userId: string | null }) {
           return;
         }
         await saveExpoPushToken(userId, token);
+        // Permite que los contactos de confianza que usan la app reciban avisos de este usuario.
+        const current = getFirebaseAuth().currentUser;
+        if (current) {
+          await publishSafetyProfile(current, token).catch((error) =>
+            console.warn('No se pudo publicar el perfil de seguridad.', error),
+          );
+        }
       } catch (error) {
         console.warn('No se pudo guardar el token push del usuario.', error);
       }
@@ -33,7 +48,12 @@ function NotificationBridge({ userId }: { userId: string | null }) {
     const cleanupListeners = setupNotificationListeners((payload) => {
       const route = typeof payload.route === 'string' ? payload.route : 'Inicio';
       const normalized = route.toLowerCase();
-      const target = normalized === 'configuracion' || normalized === 'settings' ? 'Configuracion' : 'Inicio';
+      const target =
+        normalized === 'configuracion' || normalized === 'settings'
+          ? 'Configuracion'
+          : normalized === 'seguridad'
+            ? 'Seguridad'
+            : 'Inicio';
 
       if (!navigationRef.isReady()) {
         return;
@@ -67,20 +87,31 @@ function Root() {
   }
 
   return (
-    <>
-      <NotificationBridge userId={user.uid} />
-      <AppNavigator />
-    </>
+    <EntitlementProvider>
+      <SafetyProvider>
+        <AdsProvider>
+          <NotificationBridge userId={user.uid} />
+          <AppNavigator />
+          <SafetyOverlay />
+        </AdsProvider>
+      </SafetyProvider>
+    </EntitlementProvider>
   );
 }
 
 export default function App() {
+  useEffect(() => {
+    recordAppLaunch();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <AuthProvider>
-        <Root />
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <Root />
+        </AuthProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GuideSection } from '../components/GuideSection';
-import { Header } from '../components/Header';
+import { BackHeader } from '../components/BackHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { colors, radius, spacing } from '../theme';
 import { RootTabParamList } from '../types';
@@ -14,7 +14,7 @@ export function GuideScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Header title="Guía de emergencia" subtitle="Qué hacer ante un sismo" />
+        <BackHeader title="Guía de emergencia" subtitle="Qué hacer ante un sismo" onBack={() => navigation.goBack()} />
 
         <SectionTitle title="Antes" caption="Prepárate con anticipación" />
         <GuideSection

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SismoAlert",
-    "slug": "SismoAlert",
+    "slug": "yolo",
     "scheme": "sismoalert",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -67,10 +67,10 @@
     },
     "extra": {
       "eas": {
-        "projectId": "4aaafc1e-8a39-4126-9951-1020b00eb984"
+        "projectId": "3195e2a3-4a24-41a2-9f00-e7c3db4403b6"
       }
     },
-    "owner": "sececo",
+    "owner": "edwin5659w",
     "description": "Sismos en Colombia en tiempo real, alerta \"¿Estás bien?\" y herramientas para actuar en una emergencia."
   }
 }

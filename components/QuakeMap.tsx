@@ -5,15 +5,19 @@ import { magnitudeColor } from '../lib/magnitude';
 import { colors, radius } from '../theme';
 import { Earthquake } from '../types';
 
+type UserMarker = { latitude: number; longitude: number; radiusKm: number };
+
 type QuakeMapProps = {
   earthquakes: Earthquake[];
   onSelect: (id: string) => void;
+  /** Ubicación del usuario: se dibuja con su radio de alerta. */
+  user?: UserMarker;
 };
 
 // Centro aproximado de Colombia.
 const DEFAULT_CENTER = [4.6, -74.1];
 
-function buildHtml(earthquakes: Earthquake[]) {
+function buildHtml(earthquakes: Earthquake[], user?: UserMarker) {
   const markers = earthquakes
     .filter((item) => item.latitude !== undefined && item.longitude !== undefined)
     .map((item) => ({
@@ -25,6 +29,7 @@ function buildHtml(earthquakes: Earthquake[]) {
       color: magnitudeColor(item.magnitude),
     }));
   const data = JSON.stringify(markers).replace(/</g, '\\u003c');
+  const me = JSON.stringify(user ?? null);
 
   return `<!DOCTYPE html>
 <html>
@@ -63,6 +68,24 @@ function buildHtml(earthquakes: Earthquake[]) {
     });
     points.push([item.lat, item.lng]);
   });
+  var me = ${me};
+  if (me) {
+    L.circle([me.latitude, me.longitude], {
+      radius: me.radiusKm * 1000,
+      color: '${colors.accent}',
+      weight: 1,
+      fillColor: '${colors.accent}',
+      fillOpacity: 0.06,
+      dashArray: '4 6'
+    }).addTo(map);
+    L.circleMarker([me.latitude, me.longitude], {
+      radius: 7,
+      color: '#ffffff',
+      weight: 2,
+      fillColor: '#38BDF8',
+      fillOpacity: 1
+    }).addTo(map).bindTooltip('Tú estás aquí');
+  }
   if (points.length > 1) {
     map.fitBounds(points, { padding: [24, 24], maxZoom: 8 });
   }
@@ -71,8 +94,21 @@ function buildHtml(earthquakes: Earthquake[]) {
 </html>`;
 }
 
-export function QuakeMap({ earthquakes, onSelect }: QuakeMapProps) {
-  const html = useMemo(() => buildHtml(earthquakes), [earthquakes]);
+export function QuakeMap({ earthquakes, onSelect, user }: QuakeMapProps) {
+  const lat = user?.latitude;
+  const lng = user?.longitude;
+  const radiusKm = user?.radiusKm;
+  // Solo se reconstruye el mapa si cambian los sismos o la ubicación (no en cada render).
+  const html = useMemo(
+    () =>
+      buildHtml(
+        earthquakes,
+        lat !== undefined && lng !== undefined && radiusKm !== undefined
+          ? { latitude: lat, longitude: lng, radiusKm }
+          : undefined,
+      ),
+    [earthquakes, lat, lng, radiusKm],
+  );
 
   const handleMessage = (event: WebViewMessageEvent) => {
     onSelect(event.nativeEvent.data);

@@ -3,12 +3,14 @@ import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import * as FirebaseAuth from 'firebase/auth';
 import { Auth, Persistence, getAuth, initializeAuth } from 'firebase/auth';
 import { Firestore, getFirestore } from 'firebase/firestore';
+import { Functions, getFunctions } from 'firebase/functions';
 import { Platform } from 'react-native';
 import { firebaseKeys, isFirebaseConfigured } from '../config/firebaseKeys';
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let functions: Functions | null = null;
 
 function getNativePersistence(): Persistence {
   const factory = (
@@ -64,4 +66,11 @@ export function getFirebaseDb() {
     db = getFirestore(getFirebaseApp());
   }
   return db;
+}
+
+export function getFirebaseFunctions() {
+  if (!functions) {
+    functions = getFunctions(getFirebaseApp(), 'us-central1');
+  }
+  return functions;
 }

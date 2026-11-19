@@ -29,7 +29,7 @@ export function AuthLayout({ children, top }: AuthLayoutProps) {
             <View style={styles.card}>{children}</View>
             <View style={styles.footer}>
               <Ionicons name="shield-checkmark-outline" size={14} color={colors.mutedDim} />
-              <Text style={styles.footerText}>Tus datos se protegen con Firebase</Text>
+              <Text style={styles.footerText}>Tus datos están protegidos y cifrados</Text>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

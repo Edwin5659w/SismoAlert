@@ -13,6 +13,7 @@ type LocalNotificationsModule = Pick<
   | 'requestPermissionsAsync'
   | 'scheduleNotificationAsync'
   | 'setNotificationHandler'
+  | 'cancelScheduledNotificationAsync'
 >;
 
 let notificationsModulePromise: Promise<NotificationsModule | null> | null = null;
@@ -46,10 +47,11 @@ async function loadNotificationsModule() {
 
 async function loadLocalNotificationsModule(): Promise<LocalNotificationsModule | null> {
   if (isExpoGoAndroid()) {
-    const [permissions, scheduler, handler] = await Promise.all([
+    const [permissions, scheduler, handler, canceller] = await Promise.all([
       import('expo-notifications/build/NotificationPermissions'),
       import('expo-notifications/build/scheduleNotificationAsync'),
       import('expo-notifications/build/NotificationsHandler'),
+      import('expo-notifications/build/cancelScheduledNotificationAsync'),
     ]);
 
     return {
@@ -57,6 +59,7 @@ async function loadLocalNotificationsModule(): Promise<LocalNotificationsModule 
       requestPermissionsAsync: permissions.requestPermissionsAsync,
       scheduleNotificationAsync: scheduler.scheduleNotificationAsync,
       setNotificationHandler: handler.setNotificationHandler,
+      cancelScheduledNotificationAsync: canceller.cancelScheduledNotificationAsync,
     };
   }
 
@@ -266,4 +269,103 @@ export async function sendExpoPushNotification(
   }
 
   return response.json();
+}
+
+/**
+ * Notificación local del modo "¿Estás bien?". Con `seconds` se programa a futuro,
+ * así aparece aunque la app esté en segundo plano. Devuelve el id para cancelarla.
+ */
+export async function scheduleSafetyNotification(
+  title: string,
+  body: string,
+  seconds?: number,
+): Promise<string | null> {
+  try {
+    const notifications = await loadLocalNotificationsModule();
+    if (!notifications) {
+      return null;
+    }
+    const { status } = await notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      const next = await notifications.requestPermissionsAsync();
+      if (next.status !== 'granted') {
+        return null;
+      }
+    }
+    await ensureNotificationChannel().catch(() => undefined);
+    return await notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: true,
+        data: { route: 'Seguridad', type: 'safety-check' },
+      },
+      trigger: seconds
+        ? ({ type: 'timeInterval', seconds: Math.max(1, Math.round(seconds)), channelId: DEFAULT_CHANNEL } as never)
+        : null,
+    });
+  } catch (error) {
+    console.warn('No se pudo programar la notificación de seguridad.', error);
+    return null;
+  }
+}
+
+export async function cancelSafetyNotification(id: string | null | undefined) {
+  if (!id) {
+    return;
+  }
+  try {
+    const notifications = await loadLocalNotificationsModule();
+    await notifications?.cancelScheduledNotificationAsync(id);
+  } catch {
+    // Si ya se mostró, no hay nada que cancelar.
+  }
+}
+
+export const SAFETY_CATEGORY = 'safety-check';
+
+/**
+ * Botones "Estoy bien" / "Necesito ayuda" dentro de la propia notificación,
+ * para responder sin desbloquear el celular. Abren la app para que la respuesta
+ * se guarde de forma confiable.
+ */
+export async function registerSafetyNotificationActions() {
+  try {
+    const notifications = await loadNotificationsModule();
+    if (!notifications) return;
+    await notifications.setNotificationCategoryAsync(SAFETY_CATEGORY, [
+      { identifier: 'safe', buttonTitle: 'Estoy bien', options: { opensAppToForeground: true } },
+      {
+        identifier: 'help',
+        buttonTitle: 'Necesito ayuda',
+        options: { opensAppToForeground: true, isDestructive: true },
+      },
+    ]);
+  } catch (error) {
+    console.warn('No se pudieron registrar las acciones de seguridad.', error);
+  }
+}
+
+/** Escucha cuando el usuario toca un botón de la notificación de seguridad. */
+export function onSafetyNotificationAction(
+  handler: (action: 'safe' | 'help' | 'open', data: Record<string, unknown>) => void,
+) {
+  let cancelled = false;
+  let remove = () => {};
+  loadNotificationsModule()
+    .then((notifications) => {
+      if (!notifications || cancelled) return;
+      const subscription = notifications.addNotificationResponseReceivedListener((response) => {
+        const data = (response.notification.request.content.data ?? {}) as Record<string, unknown>;
+        if (data.type !== 'server-checkin') return;
+        const id = response.actionIdentifier;
+        handler(id === 'safe' || id === 'help' ? id : 'open', data);
+      });
+      remove = () => subscription.remove();
+    })
+    .catch(() => undefined);
+  return () => {
+    cancelled = true;
+    remove();
+  };
 }

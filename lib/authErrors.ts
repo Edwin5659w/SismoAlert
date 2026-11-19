@@ -27,6 +27,8 @@ export function mapAuthError(error: unknown) {
       return 'Hubo demasiados intentos. Espera un momento e inténtalo de nuevo.';
     case 'auth/operation-not-allowed':
       return 'El acceso con correo y contraseña no está habilitado en Firebase.';
+    case 'auth/requires-recent-login':
+      return 'Por seguridad, vuelve a iniciar sesión e inténtalo de nuevo.';
     case 'permission-denied':
       return 'Firestore rechazó la escritura (revisa las reglas de seguridad).';
     default:

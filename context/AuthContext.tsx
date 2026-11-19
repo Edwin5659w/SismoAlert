@@ -1,8 +1,10 @@
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  EmailAuthProvider,
   User,
   createUserWithEmailAndPassword,
   deleteUser,
+  reauthenticateWithCredential,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -14,6 +16,7 @@ import { isFirebaseConfigured } from '../config/firebaseKeys';
 import { mapAuthError } from '../lib/authErrors';
 import { getFirebaseAuth } from '../lib/firebase';
 import { notifySuccessfulSignIn } from '../lib/notifications';
+import { deleteUserData } from '../services/account';
 import { ensureUserProfile } from '../services/userSettings';
 
 type AuthContextValue = {
@@ -24,6 +27,8 @@ type AuthContextValue = {
   signUp: (displayName: string, email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Elimina la cuenta y todos sus datos. Pide la contraseña para confirmar. */
+  deleteAccount: (password: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -128,6 +133,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       logout: async () => {
         await signOut(getFirebaseAuth());
+      },
+      deleteAccount: async (password) => {
+        const current = getFirebaseAuth().currentUser;
+        if (!current?.email) {
+          throw new Error('Vuelve a iniciar sesión e inténtalo de nuevo.');
+        }
+        try {
+          // Firebase exige un inicio de sesión reciente para borrar la cuenta.
+          await reauthenticateWithCredential(
+            current,
+            EmailAuthProvider.credential(current.email, password),
+          );
+        } catch (error) {
+          throw new Error(mapAuthError(error));
+        }
+        try {
+          await deleteUserData(current.uid, current.email);
+        } catch (error) {
+          console.warn('No se pudieron borrar los datos', error);
+          throw new Error('No pudimos borrar tus datos. Revisa tu conexión e inténtalo de nuevo.');
+        }
+        try {
+          await deleteUser(current);
+        } catch (error) {
+          throw new Error(mapAuthError(error));
+        }
       },
     }),
     [configured, loading, registering, user],

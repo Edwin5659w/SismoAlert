@@ -1,5 +1,7 @@
 // Modelo: users/{uid} contiene name, email, createdAt, role y preferencias.
 // earthquakes/{id} contiene datos sísmicos no personales; se leen y se sincronizan desde SGC/USGS.
+// users/{uid}/contacts, private/{medical|preparedness|safety} y checkins: seguridad personal.
+// publicProfiles/{correo}: token push para avisar a contactos vinculados.
 rules_version = '2';
 
 service cloud.firestore {
@@ -61,7 +63,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read, delete: if isOwner(userId);
       allow create: if isOwner(userId) &&
         uidUnchanged(userId, request.resource.data) &&
         isValidUser(request.resource.data) &&
@@ -110,6 +112,150 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated() &&
         isValidEarthquake(request.resource.data, earthquakeId);
+    }
+
+    // ---------- Seguridad personal (cada usuario solo accede a lo suyo) ----------
+
+    function isShortString(value, max) {
+      return value is string && value.size() <= max;
+    }
+
+    function isValidContact(data) {
+      return data.keys().hasAll(['name', 'phone', 'relation', 'createdAt']) &&
+        data.keys().hasOnly(['name', 'phone', 'relation', 'appEmail', 'createdAt']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 60 &&
+        data.phone is string && data.phone.matches('^[+]?[0-9]{7,15}$') &&
+        data.relation in ['Familia', 'Pareja', 'Amigo/a', 'Trabajo', 'Vecino/a', 'Otro'] &&
+        data.createdAt == request.time &&
+        (!('appEmail' in data) ||
+          (data.appEmail is string && data.appEmail.size() <= 254 &&
+            data.appEmail.matches('^[a-z0-9._%+-]+@[a-z0-9.-]+[.][a-z]{2,}$')));
+    }
+
+    match /users/{userId}/contacts/{contactId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidContact(request.resource.data);
+    }
+
+    match /users/{userId}/private/medical {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+        request.resource.data.keys().hasOnly([
+          'bloodType', 'allergies', 'conditions', 'medications', 'healthInsurer', 'notes', 'updatedAt'
+        ]) &&
+        request.resource.data.bloodType in ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'No sé'] &&
+        isShortString(request.resource.data.allergies, 500) &&
+        isShortString(request.resource.data.conditions, 500) &&
+        isShortString(request.resource.data.medications, 500) &&
+        isShortString(request.resource.data.healthInsurer, 100) &&
+        isShortString(request.resource.data.notes, 500) &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    match /users/{userId}/private/preparedness {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+        request.resource.data.keys().hasOnly([
+          'kit', 'meetingPoint', 'familyPlan', 'lastDrillAt', 'updatedAt'
+        ]) &&
+        request.resource.data.kit is list && request.resource.data.kit.size() <= 30 &&
+        isShortString(request.resource.data.meetingPoint, 200) &&
+        isShortString(request.resource.data.familyPlan, 1000) &&
+        (!('lastDrillAt' in request.resource.data) ||
+          (request.resource.data.lastDrillAt is timestamp &&
+            request.resource.data.lastDrillAt <= request.time + duration.value(5, 'm'))) &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    match /users/{userId}/private/safety {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+        request.resource.data.keys().hasOnly([
+          'checkInEnabled', 'checkInMagnitude', 'checkInMinutes', 'notifyLinkedContacts', 'updatedAt'
+        ]) &&
+        request.resource.data.checkInEnabled is bool &&
+        request.resource.data.checkInMagnitude in ['4.5+', '5.0+', '5.5+', '6.0+'] &&
+        request.resource.data.checkInMinutes in [1, 3, 5, 10] &&
+        request.resource.data.notifyLinkedContacts is bool &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    // Historial del modo "¿Estás bien?": solo se agregan registros, no se editan.
+    match /users/{userId}/checkins/{checkInId} {
+      // No se editan; solo se borran al eliminar la cuenta.
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        request.resource.data.keys().hasAll([
+          'status', 'drill', 'earthquakeId', 'magnitude', 'place', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'status', 'drill', 'earthquakeId', 'magnitude', 'place', 'distanceKm',
+          'latitude', 'longitude', 'createdAt'
+        ]) &&
+        request.resource.data.status in ['safe', 'help', 'no-response'] &&
+        request.resource.data.drill is bool &&
+        isShortString(request.resource.data.earthquakeId, 100) &&
+        request.resource.data.magnitude is number &&
+        isShortString(request.resource.data.place, 200) &&
+        (!('distanceKm' in request.resource.data) || request.resource.data.distanceKm is number) &&
+        (!('latitude' in request.resource.data) || request.resource.data.latitude is number) &&
+        (!('longitude' in request.resource.data) || request.resource.data.longitude is number) &&
+        request.resource.data.createdAt == request.time;
+    }
+
+    // Token push publicado bajo el correo, para que los contactos vinculados reciban avisos.
+    // Solo se puede leer un documento conociendo el correo exacto (no se pueden listar).
+    match /publicProfiles/{email} {
+      allow get: if isAuthenticated();
+      allow create, update: if isAuthenticated() &&
+        request.auth.token.email != null &&
+        email == request.auth.token.email.lower() &&
+        (resource == null || resource.data.uid == request.auth.uid) &&
+        request.resource.data.keys().hasOnly(['uid', 'name', 'expoPushToken', 'updatedAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        isShortString(request.resource.data.name, 100) &&
+        request.resource.data.expoPushToken is string &&
+        request.resource.data.expoPushToken.size() > 0 &&
+        request.resource.data.expoPushToken.size() <= 256 &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    // ---------- Monetización y escalada Premium ----------
+
+    // Estado de suscripción: lo escribe SOLO Cloud Functions (Admin SDK ignora estas reglas).
+    match /entitlements/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Consentimiento + ubicación aproximada para la escalada en el servidor.
+    match /presence/{userId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+        request.resource.data.keys().hasAll(['autoEscalation', 'updatedAt']) &&
+        request.resource.data.keys().hasOnly(['autoEscalation', 'latitude', 'longitude', 'updatedAt']) &&
+        request.resource.data.autoEscalation is bool &&
+        (!('latitude' in request.resource.data) ||
+          (request.resource.data.latitude is number &&
+            request.resource.data.latitude >= -90 && request.resource.data.latitude <= 90)) &&
+        (!('longitude' in request.resource.data) ||
+          (request.resource.data.longitude is number &&
+            request.resource.data.longitude >= -180 && request.resource.data.longitude <= 180)) &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    // Preguntas "¿Estás bien?" creadas por el servidor. La app solo puede responderlas
+    // una vez, mientras estén pendientes, con "safe" o "help".
+    match /users/{userId}/serverCheckins/{checkinId} {
+      allow read: if isOwner(userId);
+      allow update: if isOwner(userId) &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status in ['safe', 'help'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt']) &&
+        request.resource.data.respondedAt == request.time;
+      allow create: if false;
+      allow delete: if isOwner(userId);
     }
 
     match /{document=**} {

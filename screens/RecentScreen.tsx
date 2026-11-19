@@ -3,12 +3,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BannerSlot } from '../components/ads/BannerSlot';
 import { Header } from '../components/Header';
 import { OptionPills } from '../components/OptionPills';
 import { QuakeListItem } from '../components/QuakeListItem';
 import { SectionTitle } from '../components/SectionTitle';
 import { runEarthquakeSync, useEarthquakeSyncStatus } from '../hooks/useEarthquakeSync';
-import { useEarthquakes } from '../hooks/useEarthquakes';
+import { useSafety } from '../context/SafetyContext';
+import { quakeDistanceKm } from '../lib/geo';
 import { parseMagnitude } from '../lib/magnitude';
 import { colors, spacing } from '../theme';
 import { RootTabParamList } from '../types';
@@ -17,7 +19,7 @@ const FILTER_OPTIONS = ['Todos', '3.0+', '4.0+', '5.0+'];
 
 export function RecentScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
-  const { earthquakes, loading, error } = useEarthquakes();
+  const { earthquakes, earthquakesLoading: loading, earthquakesError: error, location } = useSafety();
   const syncStatus = useEarthquakeSyncStatus();
   const [filter, setFilter] = useState('Todos');
 
@@ -46,7 +48,7 @@ export function RecentScreen() {
         }
         ListHeaderComponent={
           <View>
-            <Header title="Sismos recientes" subtitle="Registros reales sincronizados en Firestore" />
+            <Header title="Sismos recientes" subtitle="Datos del Servicio Geológico Colombiano" />
             <SectionTitle title="Filtrar por magnitud" caption="Desliza hacia abajo para actualizar" />
             <OptionPills options={FILTER_OPTIONS} selected={filter} onSelect={setFilter} />
             {loading ? <ActivityIndicator color={colors.accent} style={styles.loader} /> : null}
@@ -54,12 +56,14 @@ export function RecentScreen() {
             <SectionTitle title={`${visibleEarthquakes.length} sismos`} />
           </View>
         }
+        ListFooterComponent={<BannerSlot />}
         ListEmptyComponent={
           !loading ? <Text style={styles.empty}>No hay sismos para el filtro seleccionado.</Text> : null
         }
         renderItem={({ item }) => (
           <QuakeListItem
             earthquake={item}
+            distanceKm={quakeDistanceKm(item, location.location)}
             onPress={(earthquake) => navigation.navigate('Detalle', { id: earthquake.id })}
           />
         )}

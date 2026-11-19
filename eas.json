@@ -17,7 +17,7 @@
       "env": {
         "EXPO_PUBLIC_PREMIUM_ENABLED": "false"
       },
-      "environment": "development"
+      "environment": "production"
     },
     "production": {
       "autoIncrement": true,
@@ -27,7 +27,7 @@
       "env": {
         "EXPO_PUBLIC_PREMIUM_ENABLED": "false"
       },
-      "environment": "development"
+      "environment": "production"
     }
   },
   "submit": {
